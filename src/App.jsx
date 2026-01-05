@@ -832,54 +832,64 @@ export default function App() {
              </div>
            </div>
          )}
-         
-         {activeTab === 'admin' && currentUser.isAdmin && (
-           <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-sm">
-             <h2 className="text-xl font-bold mb-6">Painel Administrativo</h2>
-             <div className="grid grid-cols-1 gap-4 mb-4">
-              <input
-                type="text"
-                placeholder="Nome Completo"
-                className="w-full p-2 border rounded"
-                value={userManagementForm.name}
-                onChange={(e) => setUserManagementForm({...userManagementForm, name: e.target.value})}/>
-              <input
-                type="text"
-                placeholder="Login (Usuário)"
-                className="w-full p-2 border rounded"
-                value={userManagementForm.username}
-                onChange={(e) => setUserManagementForm({...userManagementForm, username: e.target.value})}/>
-              <input
-                type="email"
-                placeholder="E-mail do Usuário"
-                className="w-full p-2 border rounded"
-                value={userManagementForm.email}
-                onChange={(e) => setUserManagementForm({...userManagementForm, email: e.target.value})}/>
-            </div>                   
-                     <button onClick={createUser} className="bg-green-600 text-white px-4 py-2 rounded w-full hover:bg-green-700">Criar Usuário</button>
-                  </div>
-               </div>
-               <div>
-                  <h3 className="font-semibold mb-4">Usuários Existentes</h3>
-                  <div className="space-y-2">
-                     {users.map(u => (
-                       <div key={u.username} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                          <div>
-                            <p className="font-medium">{u.name}</p>
-                            <p className="text-xs text-gray-500">@{u.username}</p>
-                          </div>
-                          {u.username !== 'dperrut' && (
-                             <button onClick={() => deleteUser(u.username)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={16}/></button>
-                          )}
-                       </div>
-                     ))}
-                  </div>
-               </div>
-             </div>
-           </div>
-         )}
 
-      </div>
-    </div>
-  );
-}
+         {activeTab === 'admin' && currentUser.isAdmin && (
+          <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-sm">
+            <h2 className="text-xl font-bold mb-6">Painel Administrativo</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Lado Esquerdo: Formulário de Criação */}
+              <div>
+                <h3 className="font-semibold mb-4">Novo Usuário</h3>
+                <div className="space-y-4">
+                  <input
+                    type="text"
+                    placeholder="Nome Completo"
+                    className="w-full p-2 border rounded"
+                    value={userManagementForm.name}
+                    onChange={(e) => setUserManagementForm({...userManagementForm, name: e.target.value})}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Login (Usuário)"
+                    className="w-full p-2 border rounded"
+                    value={userManagementForm.username}
+                    onChange={(e) => setUserManagementForm({...userManagementForm, username: e.target.value})}
+                  />
+                  <input
+                    type="email"
+                    placeholder="E-mail do Usuário"
+                    className="w-full p-2 border rounded"
+                    value={userManagementForm.email}
+                    onChange={(e) => setUserManagementForm({...userManagementForm, email: e.target.value})}
+                  />
+                  <button onClick={createUser} className="bg-green-600 text-white px-4 py-2 rounded w-full hover:bg-green-700 font-medium">
+                    Criar Usuário
+                  </button>
+                  <p className="text-xs text-gray-500 text-center mt-2">Senha padrão será: <strong>mudar321</strong></p>
+                </div>
+              </div>
+
+              {/* Lado Direito: Lista de Usuários */}
+              <div>
+                <h3 className="font-semibold mb-4">Usuários Existentes</h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+                  {users.map(u => (
+                    <div key={u.username} className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-100">
+                      <div>
+                        <p className="font-medium text-gray-800">{u.name}</p>
+                        <p className="text-xs text-gray-500">@{u.username}</p>
+                      </div>
+                      {u.username !== 'dperrut' && (
+                        <button onClick={() => deleteUser(u.username)} className="text-red-500 hover:bg-red-50 p-2 rounded transition-colors" title="Excluir Usuário">
+                          <Trash2 size={18}/>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+         
