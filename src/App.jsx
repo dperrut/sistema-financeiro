@@ -397,63 +397,89 @@ export default function App() {
   const metrics = calculateMetrics();
 
   if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <DollarSign className="w-10 h-10 text-blue-600" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-800">Sistema Financeiro</h1>
-            <p className="text-gray-600 mt-2">Faça login para continuar</p>
+    // TELA DE RECUPERAÇÃO DE SENHA
+    if (showForgotPassword) {
+      return (
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+          <div className="bg-white p-8 rounded-lg shadow-md w-96">
+            <h1 className="text-2xl font-bold mb-6 text-center text-blue-600">Recuperar Senha</h1>
+            <p className="text-sm text-gray-600 mb-4 text-center">Digite seu e-mail para receber o link.</p>
+            <form onSubmit={handleResetRequest}>
+              <div className="mb-4">
+                <input
+                  type="email"
+                  placeholder="Seu e-mail cadastrado"
+                  required
+                  className="w-full p-2 border rounded"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                />
+              </div>
+              <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 mb-2">
+                Enviar Link
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(false)}
+                className="w-full bg-gray-300 text-gray-700 p-2 rounded hover:bg-gray-400"
+              >
+                Voltar
+              </button>
+            </form>
           </div>
+        </div>
+      );
+    }
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Usuário</label>
+    // TELA DE LOGIN NORMAL
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md w-96">
+          <h1 className="text-2xl font-bold mb-6 text-center text-blue-600">Sistema Financeiro</h1>
+          <form onSubmit={handleLogin}>
+            <div className="mb-4">
+              <label className="block text-gray-700 mb-2">Usuário</label>
               <input
                 type="text"
+                className="w-full p-2 border rounded"
                 value={loginForm.username}
-                onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
-                placeholder="Digite seu usuário"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Senha</label>
+            <div className="mb-6 relative">
+              <label className="block text-gray-700 mb-2">Senha</label>
               <div className="relative">
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
+                  className="w-full p-2 border rounded pr-10"
                   value={loginForm.password}
-                  onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
-                  placeholder="Digite sua senha"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                 />
                 <button
                   type="button"
+                  className="absolute right-2 top-2 text-gray-500"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
-            </div>
+              
+              {/* LINK ESQUECI MINHA SENHA */}
+              <div className="text-right mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  Esqueci minha senha
+                </button>
+              </div>
 
-            <button
-              onClick={handleLogin}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-all shadow-lg"
-            >
+            </div>
+            <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">
               Entrar
             </button>
-          </div>
-
-          <div className="mt-6 text-center text-sm text-gray-500 bg-gray-50 p-4 rounded-lg">
-            <p>Usuário padrão: <strong>dperrut</strong></p>
-            <p>Senha padrão: <strong>admin1234</strong></p>
-          </div>
+          </form>
         </div>
       </div>
     );
