@@ -836,25 +836,26 @@ export default function App() {
          {activeTab === 'admin' && currentUser.isAdmin && (
            <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-sm">
              <h2 className="text-xl font-bold mb-6">Painel Administrativo</h2>
-             <div className="grid md:grid-cols-2 gap-8">
-               <div>
-                  <h3 className="font-semibold mb-4">Novo Usuário</h3>
-                  <div className="space-y-3">
-                     <input type="text" placeholder="Nome Completo" className="w-full p-2 border rounded" value={userManagementForm.name} onChange={e=>setUserManagementForm({...userManagementForm, name: e.target.value})} />
-
-                     <input type="text" placeholder="Nome Completo"
-                      className="w-full p-2 border rounded mb-2"
-                      value={userManagementForm.name}
-                      onChange={(e) => setUserManagementForm({...userManagementForm, name: e.target.value})}/>
-                     <input
-                      type="text" placeholder="Login (Usuário)"
-                      className="w-full p-2 border rounded mb-2"
-                      value={userManagementForm.username}
-                      onChange={(e) => setUserManagementForm({...userManagementForm, username: e.target.value})}/>
-                     <input type="email" placeholder="E-mail do Usuário"
-                      className="w-full p-2 border rounded mb-4"
-                      value={userManagementForm.email}
-                      onChange={(e) => setUserManagementForm({...userManagementForm, email: e.target.value})}/>                   
+             <div className="grid grid-cols-1 gap-4 mb-4">
+              <input
+                type="text"
+                placeholder="Nome Completo"
+                className="w-full p-2 border rounded"
+                value={userManagementForm.name}
+                onChange={(e) => setUserManagementForm({...userManagementForm, name: e.target.value})}/>
+              <input
+                type="text"
+                placeholder="Login (Usuário)"
+                className="w-full p-2 border rounded"
+                value={userManagementForm.username}
+                onChange={(e) => setUserManagementForm({...userManagementForm, username: e.target.value})}/>
+              <input
+                type="email"
+                placeholder="E-mail do Usuário"
+                className="w-full p-2 border rounded"
+                value={userManagementForm.email}
+                onChange={(e) => setUserManagementForm({...userManagementForm, email: e.target.value})}/>
+            </div>                   
                      <button onClick={createUser} className="bg-green-600 text-white px-4 py-2 rounded w-full hover:bg-green-700">Criar Usuário</button>
                   </div>
                </div>
