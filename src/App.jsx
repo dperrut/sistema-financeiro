@@ -798,8 +798,20 @@ export default function App() {
                   <h3 className="font-semibold mb-4">Novo Usuário</h3>
                   <div className="space-y-3">
                      <input type="text" placeholder="Nome Completo" className="w-full p-2 border rounded" value={userManagementForm.name} onChange={e=>setUserManagementForm({...userManagementForm, name: e.target.value})} />
-                     <input type="text" placeholder="Login (ex: joao)" className="w-full p-2 border rounded" value={userManagementForm.username} onChange={e=>setUserManagementForm({...userManagementForm, username: e.target.value})} />
-                     <input type="password" placeholder="Senha" className="w-full p-2 border rounded" value={userManagementForm.password} onChange={e=>setUserManagementForm({...userManagementForm, password: e.target.value})} />
+
+                     <input type="text" placeholder="Nome Completo"
+                      className="w-full p-2 border rounded mb-2"
+                      value={userManagementForm.name}
+                      onChange={(e) => setUserManagementForm({...userManagementForm, name: e.target.value})}/>
+                     <input
+                      type="text" placeholder="Login (Usuário)"
+                      className="w-full p-2 border rounded mb-2"
+                      value={userManagementForm.username}
+                      onChange={(e) => setUserManagementForm({...userManagementForm, username: e.target.value})}/>
+                     <input type="email" placeholder="E-mail do Usuário"
+                      className="w-full p-2 border rounded mb-4"
+                      value={userManagementForm.email}
+                      onChange={(e) => setUserManagementForm({...userManagementForm, email: e.target.value})}/>                   
                      <button onClick={createUser} className="bg-green-600 text-white px-4 py-2 rounded w-full hover:bg-green-700">Criar Usuário</button>
                   </div>
                </div>
