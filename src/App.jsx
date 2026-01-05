@@ -12,8 +12,8 @@ export default function App() {
   
   const [userManagementForm, setUserManagementForm] = useState({
     username: '',
-    password: '',
-    name: ''
+    name: '',
+    email: '' // Novo campo
   });
   
   const [changePasswordForm, setChangePasswordForm] = useState({
@@ -143,11 +143,13 @@ export default function App() {
   };
 
   const createUser = () => {
-    if (!userManagementForm.username || !userManagementForm.password || !userManagementForm.name) {
+    // Validamos se tem Nome, Login e Email (não pedimos mais senha)
+    if (!userManagementForm.username || !userManagementForm.name || !userManagementForm.email) {
       alert('Preencha todos os campos!');
       return;
     }
 
+    // Verifica se usuário já existe
     if (users.find(u => u.username === userManagementForm.username)) {
       alert('Este usuário já existe!');
       return;
@@ -155,8 +157,9 @@ export default function App() {
 
     const newUser = {
       username: userManagementForm.username,
-      password: userManagementForm.password,
+      password: 'mudar321', // SENHA PADRÃO FIXA
       name: userManagementForm.name,
+      email: userManagementForm.email, // Salva o e-mail
       isAdmin: false,
       createdAt: new Date().toISOString()
     };
@@ -164,8 +167,10 @@ export default function App() {
     const updatedUsers = [...users, newUser];
     setUsers(updatedUsers);
     localStorage.setItem('system_users', JSON.stringify(updatedUsers));
-    setUserManagementForm({ username: '', password: '', name: '' });
-    alert('Usuário criado com sucesso!');
+    
+    // Limpa o formulário
+    setUserManagementForm({ username: '', name: '', email: '' });
+    alert('Usuário criado! A senha padrão é: mudar321');
   };
 
   const deleteUser = (username) => {
