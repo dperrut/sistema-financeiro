@@ -5,6 +5,23 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
+  // --- Lógica de Recuperação de Senha ---
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+
+  const handleResetRequest = (e) => {
+    e.preventDefault();
+    const userFound = users.find(u => u.email === resetEmail);
+    
+    if (userFound) {
+      alert(`[SIMULAÇÃO]\n\nPara: ${userFound.email}\nAssunto: Recuperar Senha\n\nOlá ${userFound.name}, use o link para resetar sua senha.`);
+      setShowForgotPassword(false);
+      setResetEmail('');
+      setShowForgotPassword(false); // Volta para o login
+    } else {
+      alert('E-mail não encontrado.');
+    }
+  };
   const [activeTab, setActiveTab] = useState('dashboard');
   const [transactions, setTransactions] = useState([]);
   const [goals, setGoals] = useState([]);
