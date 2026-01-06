@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, Target, Plus, Trash2, LogOut, Users, Lock, Eye, EyeOff, ChevronLeft, ChevronRight, Calendar, AlertTriangle, PieChart as PieIcon, Filter, Edit, XCircle, Calculator } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Target, Plus, Trash2, LogOut, Users, Lock, Eye, EyeOff, ChevronLeft, ChevronRight, Calendar, AlertTriangle, PieChart as PieIcon, Filter, Edit, XCircle, Calculator, Tag } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -15,6 +15,10 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [goals, setGoals] = useState([]);
   const [users, setUsers] = useState([]);
+  
+  // --- NOVO: Estado de Categorias ---
+  const [categories, setCategories] = useState([]);
+  const [newCategory, setNewCategory] = useState('');
 
   // --- Controle de Mês e Filtros ---
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -31,11 +35,12 @@ export default function App() {
   const [userManagementForm, setUserManagementForm] = useState({ username: '', name: '', email: '' });
   const [changePasswordForm, setChangePasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [incomeForm, setIncomeForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '' });
+  // Atualizado: category agora começa vazia ou com a primeira padrão
   const [expenseForm, setExpenseForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: 'Alimentação', paymentMethod: 'PIX' });
   const [goalForm, setGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', description: '' });
 
   // Cores para o Gráfico
-  const COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1'];
+  const COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1', '#84CC16', '#14B8A6'];
 
   // Inicialização
   useEffect(() => {
@@ -44,26 +49,31 @@ export default function App() {
 
   const initializeSystem = () => {
     try {
+      // 1. Usuários
       const usersResult = localStorage.getItem('system_users');
       if (usersResult) {
         setUsers(JSON.parse(usersResult));
       } else {
-        const defaultUsers = [{
-          username: 'dperrut',
-          password: 'admin1234',
-          name: 'Diego (Admin)',
-          email: 'diego@exemplo.com',
-          isAdmin: true,
-          createdAt: new Date().toISOString()
-        }];
+        const defaultUsers = [{ username: 'dperrut', password: 'admin1234', name: 'Diego (Admin)', email: 'diego@exemplo.com', isAdmin: true, createdAt: new Date().toISOString() }];
         localStorage.setItem('system_users', JSON.stringify(defaultUsers));
         setUsers(defaultUsers);
       }
       
+      // 2. Transações e Metas
       const savedTrans = localStorage.getItem('system_transactions');
       const savedGoals = localStorage.getItem('system_goals');
       if (savedTrans) setTransactions(JSON.parse(savedTrans));
       if (savedGoals) setGoals(JSON.parse(savedGoals));
+
+      // 3. Categorias (NOVO)
+      const savedCats = localStorage.getItem('system_categories');
+      if (savedCats) {
+        setCategories(JSON.parse(savedCats));
+      } else {
+        const defaultCats = ['Alimentação', 'Transporte', 'Moradia', 'Lazer', 'Saúde', 'Educação', 'Outros'];
+        localStorage.setItem('system_categories', JSON.stringify(defaultCats));
+        setCategories(defaultCats);
+      }
 
     } catch (error) {
       console.error("Erro ao inicializar:", error);
@@ -73,14 +83,9 @@ export default function App() {
   // --- Login/Logout ---
   const handleLogin = (e) => {
     e.preventDefault();
-    const user = users.find(
-      (u) => u.username === loginForm.username && u.password === loginForm.password
-    );
-    if (user) {
-      setCurrentUser(user);
-    } else {
-      alert('Usuário ou senha incorretos!');
-    }
+    const user = users.find((u) => u.username === loginForm.username && u.password === loginForm.password);
+    if (user) setCurrentUser(user);
+    else alert('Usuário ou senha incorretos!');
   };
 
   const handleLogout = () => {
@@ -89,20 +94,37 @@ export default function App() {
     setActiveTab('dashboard');
   };
 
-  const handleResetRequest = (e) => {
-    e.preventDefault();
-    alert('Função de e-mail simulada.');
-    setShowForgotPassword(false);
-  };
-
   // --- Reset ---
   const factoryReset = () => {
     if (window.confirm("Isso apagará TODOS os dados. Confirmar?")) {
       localStorage.removeItem('system_transactions');
       localStorage.removeItem('system_goals');
+      localStorage.removeItem('system_categories'); // Reseta categorias também
       setTransactions([]);
       setGoals([]);
-      alert("Sistema limpo!");
+      window.location.reload(); // Recarrega para voltar categorias padrão
+    }
+  };
+
+  // --- Lógica de Categorias (NOVO) ---
+  const addCategory = () => {
+    if (!newCategory) return;
+    if (categories.includes(newCategory)) return alert('Categoria já existe!');
+    const updated = [...categories, newCategory];
+    setCategories(updated);
+    localStorage.setItem('system_categories', JSON.stringify(updated));
+    setNewCategory('');
+  };
+
+  const removeCategory = (catToDelete) => {
+    if (window.confirm(`Excluir categoria "${catToDelete}"? (Lançamentos antigos não serão afetados)`)) {
+      const updated = categories.filter(c => c !== catToDelete);
+      setCategories(updated);
+      localStorage.setItem('system_categories', JSON.stringify(updated));
+      // Se a categoria selecionada no form for a excluída, volta para a primeira
+      if (expenseForm.category === catToDelete) {
+        setExpenseForm({...expenseForm, category: updated[0] || ''});
+      }
     }
   };
 
@@ -112,46 +134,26 @@ export default function App() {
     newDate.setMonth(newDate.getMonth() - 1);
     setCurrentDate(newDate);
   };
-
   const handleNextMonth = () => {
     const newDate = new Date(currentDate);
     newDate.setMonth(newDate.getMonth() + 1);
     setCurrentDate(newDate);
   };
-
-  const formatMonthYear = (date) => {
-    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  };
+  const formatMonthYear = (date) => date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   const safeTransactions = Array.isArray(transactions) ? transactions : [];
-
   const filteredTransactions = safeTransactions.filter(t => {
     if (!t.date) return false;
     const [yearStr, monthStr] = t.date.split('-');
-    const transYear = parseInt(yearStr);
-    const transMonth = parseInt(monthStr) - 1;
-    return transMonth === currentDate.getMonth() && transYear === currentDate.getFullYear();
+    return (parseInt(monthStr) - 1) === currentDate.getMonth() && parseInt(yearStr) === currentDate.getFullYear();
   });
 
   // --- Cálculos ---
-  const monthlyIncome = filteredTransactions
-    .filter(t => t.type === 'receita')
-    .reduce((acc, curr) => acc + Number(curr.value), 0);
-
-  const monthlyExpense = filteredTransactions
-    .filter(t => t.type === 'despesa')
-    .reduce((acc, curr) => acc + Number(curr.value), 0);
-
+  const monthlyIncome = filteredTransactions.filter(t => t.type === 'receita').reduce((acc, curr) => acc + Number(curr.value), 0);
+  const monthlyExpense = filteredTransactions.filter(t => t.type === 'despesa').reduce((acc, curr) => acc + Number(curr.value), 0);
   const monthlyBalance = monthlyIncome - monthlyExpense;
-
-  const totalGlobalIncome = safeTransactions
-    .filter(t => t.type === 'receita')
-    .reduce((acc, curr) => acc + Number(curr.value), 0);
-    
-  const totalGlobalExpense = safeTransactions
-    .filter(t => t.type === 'despesa')
-    .reduce((acc, curr) => acc + Number(curr.value), 0);
-
+  const totalGlobalIncome = safeTransactions.filter(t => t.type === 'receita').reduce((acc, curr) => acc + Number(curr.value), 0);
+  const totalGlobalExpense = safeTransactions.filter(t => t.type === 'despesa').reduce((acc, curr) => acc + Number(curr.value), 0);
   const accumulatedBalance = totalGlobalIncome - totalGlobalExpense;
 
   const calculateSmartGoal = (targetAmount, currentAmount, targetDate) => {
@@ -173,63 +175,45 @@ export default function App() {
   const startEditing = (transaction) => {
     setEditingId(transaction.id);
     if (transaction.type === 'receita') {
-      setIncomeForm({
-        date: transaction.date,
-        description: transaction.description,
-        amount: transaction.value.toFixed(2)
-      });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setIncomeForm({ date: transaction.date, description: transaction.description, amount: transaction.value.toFixed(2) });
     } else {
-      setExpenseForm({
-        date: transaction.date,
-        description: transaction.description,
-        amount: transaction.value.toFixed(2),
-        category: transaction.category,
-        paymentMethod: transaction.paymentMethod || 'PIX'
+      setExpenseForm({ 
+        date: transaction.date, 
+        description: transaction.description, 
+        amount: transaction.value.toFixed(2), 
+        category: transaction.category, 
+        paymentMethod: transaction.paymentMethod || 'PIX' 
       });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEditing = () => {
     setEditingId(null);
     setIncomeForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '' });
-    setExpenseForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: 'Alimentação', paymentMethod: 'PIX' });
+    setExpenseForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: categories[0] || 'Outros', paymentMethod: 'PIX' });
   };
 
   const addTransaction = (type) => {
     const form = type === 'income' ? incomeForm : expenseForm;
     if (!form.description || !form.amount) return alert('Preencha os dados!');
-    const sanitizedAmount = form.amount.toString().replace(',', '.');
-    const numericAmount = parseFloat(sanitizedAmount);
+    const numericAmount = parseFloat(form.amount.toString().replace(',', '.'));
     if (isNaN(numericAmount)) return alert("Valor inválido");
 
     if (editingId) {
-       const updatedTransactions = safeTransactions.map(t => {
-          if (t.id === editingId) {
-             return { ...t, ...form, value: numericAmount };
-          }
-          return t;
-       });
+       const updatedTransactions = safeTransactions.map(t => t.id === editingId ? { ...t, ...form, value: numericAmount } : t);
        setTransactions(updatedTransactions);
        localStorage.setItem('system_transactions', JSON.stringify(updatedTransactions));
-       alert("Lançamento atualizado!");
+       alert("Atualizado!");
        cancelEditing();
     } else {
-       const newTransaction = {
-          id: Date.now(),
-          ...form,
-          type: type === 'income' ? 'receita' : 'despesa',
-          value: numericAmount,
-          createdBy: currentUser.name
-       };
+       const newTransaction = { id: Date.now(), ...form, type: type === 'income' ? 'receita' : 'despesa', value: numericAmount, createdBy: currentUser.name };
        const updatedTransactions = [...safeTransactions, newTransaction];
        setTransactions(updatedTransactions);
        localStorage.setItem('system_transactions', JSON.stringify(updatedTransactions));
-       
        if (type === 'income') setIncomeForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '' });
-       else setExpenseForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: 'Alimentação', paymentMethod: 'PIX' });
-       alert('Lançamento adicionado!');
+       else setExpenseForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: categories[0] || 'Outros', paymentMethod: 'PIX' });
+       alert('Adicionado!');
     }
   };
 
@@ -242,12 +226,13 @@ export default function App() {
     }
   };
 
+  // --- Metas ---
   const addGoal = () => {
     if (!goalForm.name || !goalForm.targetAmount) return;
     const newGoal = { id: Date.now(), ...goalForm, currentAmount: 0, createdBy: currentUser.name };
-    const updatedGoals = [...goals, newGoal];
-    setGoals(updatedGoals);
-    localStorage.setItem('system_goals', JSON.stringify(updatedGoals));
+    const updated = [...goals, newGoal];
+    setGoals(updated);
+    localStorage.setItem('system_goals', JSON.stringify(updated));
     setGoalForm({ name: '', targetAmount: '', targetDate: '', description: '' });
   };
 
@@ -265,15 +250,8 @@ export default function App() {
     const updatedGoals = goals.map(g => g.id === id ? { ...g, currentAmount: (g.currentAmount || 0) + value } : g);
     const goal = goals.find(g => g.id === id);
     const newTransaction = {
-      id: Date.now(),
-      type: 'despesa',
-      description: `Investimento: ${goal.name}`,
-      amount: valueStr,
-      value: value, 
-      category: 'Investimento/Meta',
-      paymentMethod: 'Transferência',
-      date: new Date().toISOString().split('T')[0],
-      createdBy: currentUser.name
+      id: Date.now(), type: 'despesa', description: `Investimento: ${goal.name}`, amount: valueStr, value: value, 
+      category: 'Investimento/Meta', paymentMethod: 'Transferência', date: new Date().toISOString().split('T')[0], createdBy: currentUser.name
     };
     setGoals(updatedGoals);
     setTransactions([...safeTransactions, newTransaction]);
@@ -286,18 +264,11 @@ export default function App() {
     e.preventDefault();
     const value = parseFloat(withdrawForm.amount);
     const goal = goals.find(g => g.id === withdrawModal.goalId);
-    if (!value || value > (goal.currentAmount || 0)) return alert("Saldo insuficiente ou inválido");
-    
+    if (!value || value > (goal.currentAmount || 0)) return alert("Saldo insuficiente");
     const updatedGoals = goals.map(g => g.id === withdrawModal.goalId ? { ...g, currentAmount: g.currentAmount - value } : g);
     const newTransaction = {
-      id: Date.now(),
-      type: 'receita',
-      description: `Resgate: ${goal.name}`,
-      amount: withdrawForm.amount,
-      value: value,
-      category: 'Resgate de Meta',
-      date: new Date().toISOString().split('T')[0],
-      createdBy: currentUser.name
+      id: Date.now(), type: 'receita', description: `Resgate: ${goal.name}`, amount: withdrawForm.amount, value: value,
+      category: 'Resgate de Meta', date: new Date().toISOString().split('T')[0], createdBy: currentUser.name
     };
     setGoals(updatedGoals);
     setTransactions([...safeTransactions, newTransaction]);
@@ -307,7 +278,7 @@ export default function App() {
     alert("Resgatado!");
   };
 
-  // --- CRUD USUÁRIOS ---
+  // --- Usuários ---
   const createUser = () => {
     if (!userManagementForm.username) return alert('Preencha os dados');
     const newUser = { ...userManagementForm, password: 'mudar321', isAdmin: false, createdAt: new Date().toISOString() };
@@ -334,7 +305,7 @@ export default function App() {
      alert('Senha alterada');
   };
 
-  // --- FUNÇÕES DE RENDERIZAÇÃO ---
+  // --- Renderização ---
   const renderSummaryCards = () => (
     <div className="space-y-6 mb-6">
       <div className="bg-gradient-to-r from-blue-900 to-blue-700 p-6 rounded-xl shadow-lg text-white flex justify-between items-center transform hover:scale-[1.01] transition-transform">
@@ -344,7 +315,6 @@ export default function App() {
         </div>
         <div className="bg-white bg-opacity-20 p-3 rounded-full"><DollarSign size={32} className="text-white" /></div>
       </div>
-
       <h3 className="text-gray-500 font-bold text-sm uppercase tracking-wide">Desempenho de {formatMonthYear(currentDate)}</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500 flex justify-between items-center">
@@ -369,52 +339,35 @@ export default function App() {
        const matchesUser = chartFilter === 'todos' || t.createdBy === chartFilter;
        return isExpense && matchesUser;
     });
-
     if (expenses.length === 0) return <div className="text-center text-gray-400 py-10">Sem despesas para este filtro.</div>;
 
     const categoryTotals = expenses.reduce((acc, curr) => {
       acc[curr.category] = (acc[curr.category] || 0) + curr.value;
       return acc;
     }, {});
-
     const total = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
     const data = Object.keys(categoryTotals).map((cat, index) => ({
-      name: cat,
-      value: categoryTotals[cat],
-      percent: total > 0 ? (categoryTotals[cat] / total) * 100 : 0,
-      color: COLORS[index % COLORS.length]
+      name: cat, value: categoryTotals[cat], percent: total > 0 ? (categoryTotals[cat] / total) * 100 : 0, color: COLORS[index % COLORS.length]
     })).sort((a, b) => b.value - a.value);
 
     let currentDeg = 0;
     const gradientParts = data.map(item => {
-      const start = currentDeg;
-      const end = currentDeg + (item.percent * 3.6);
-      currentDeg = end;
+      const start = currentDeg; const end = currentDeg + (item.percent * 3.6); currentDeg = end;
       return `${item.color} ${start}deg ${end}deg`;
     }).join(', ');
 
     return (
       <div className="flex flex-col md:flex-row items-center justify-around">
-        <div className="relative w-48 h-48 rounded-full shadow-lg mb-6 md:mb-0" 
-             style={{ background: `conic-gradient(${gradientParts || '#eee 0deg 360deg'})` }}>
+        <div className="relative w-48 h-48 rounded-full shadow-lg mb-6 md:mb-0" style={{ background: `conic-gradient(${gradientParts || '#eee 0deg 360deg'})` }}>
            <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center">
-             <div className="text-center">
-               <p className="text-xs text-gray-500">Total ({chartFilter === 'todos' ? 'Todos' : chartFilter})</p>
-               <p className="font-bold text-gray-800">R$ {total.toFixed(0)}</p>
-             </div>
+             <div className="text-center"><p className="text-xs text-gray-500">Total ({chartFilter === 'todos' ? 'Todos' : chartFilter})</p><p className="font-bold text-gray-800">R$ {total.toFixed(0)}</p></div>
            </div>
         </div>
         <div className="space-y-2 w-full md:w-auto">
           {data.map(item => (
             <div key={item.name} className="flex items-center justify-between min-w-[200px] text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{background: item.color}}></div>
-                <span className="text-gray-700">{item.name}</span>
-              </div>
-              <div className="flex gap-4">
-                 <span className="font-semibold">R$ {item.value.toFixed(2)}</span>
-                 <span className="text-gray-400 text-xs w-8 text-right">{item.percent.toFixed(0)}%</span>
-              </div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{background: item.color}}></div><span className="text-gray-700">{item.name}</span></div>
+              <div className="flex gap-4"><span className="font-semibold">R$ {item.value.toFixed(2)}</span><span className="text-gray-400 text-xs w-8 text-right">{item.percent.toFixed(0)}%</span></div>
             </div>
           ))}
         </div>
@@ -422,21 +375,16 @@ export default function App() {
     );
   };
 
-  // --- TELA PRINCIPAL ---
+  // --- TELA LOGIN ---
   if (!currentUser) {
-    if (showForgotPassword) {
-        return <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4"><div className="bg-white p-8 rounded shadow w-full max-w-sm"><h1 className="text-2xl font-bold mb-4">Recuperar Senha</h1><button onClick={()=>setShowForgotPassword(false)} className="w-full bg-gray-200 p-2 rounded">Voltar</button></div></div>;
-    }
+    if (showForgotPassword) return <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4"><div className="bg-white p-8 rounded shadow w-full max-w-sm"><h1 className="text-2xl font-bold mb-4">Recuperar Senha</h1><button onClick={()=>setShowForgotPassword(false)} className="w-full bg-gray-200 p-2 rounded">Voltar</button></div></div>;
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
           <h1 className="text-2xl font-bold mb-6 text-center text-blue-600">Minhas Finanças</h1>
           <form onSubmit={handleLogin}>
             <input type="text" placeholder="Usuário" className="w-full p-2 border rounded mb-4" value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })} />
-            <div className="relative mb-6">
-                <input type={showPassword ? "text" : "password"} placeholder="Senha" className="w-full p-2 border rounded pr-10" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} />
-                <button type="button" className="absolute right-2 top-2 text-gray-500" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
-            </div>
+            <div className="relative mb-6"><input type={showPassword ? "text" : "password"} placeholder="Senha" className="w-full p-2 border rounded pr-10" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} /><button type="button" className="absolute right-2 top-2 text-gray-500" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button></div>
             <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Entrar</button>
           </form>
         </div>
@@ -444,9 +392,9 @@ export default function App() {
     );
   }
 
+  // --- APP PRINCIPAL ---
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Menu Desktop */}
       <div className="w-64 bg-blue-900 text-white p-6 flex flex-col hidden md:flex">
         <h1 className="text-2xl font-bold mb-8">Finanças App</h1>
         <div className="flex-1 space-y-4">
@@ -459,7 +407,6 @@ export default function App() {
         <button onClick={handleLogout} className="flex items-center space-x-2 text-red-300 hover:text-red-100 mt-auto pt-4 border-t border-blue-800"><LogOut size={20} /> <span>Sair</span></button>
       </div>
 
-      {/* Menu Mobile */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 text-gray-500 flex justify-around p-3 z-50 shadow-lg">
           <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center ${activeTab === 'dashboard' ? 'text-blue-600' : ''}`}><TrendingUp size={24} /><span className="text-[10px]">Visão</span></button>
           <button onClick={() => setActiveTab('transactions')} className={`flex flex-col items-center ${activeTab === 'transactions' ? 'text-blue-600' : ''}`}><DollarSign size={24} /><span className="text-[10px]">Lançar</span></button>
@@ -485,10 +432,7 @@ export default function App() {
         {(activeTab === 'dashboard' || activeTab === 'transactions') && (
           <div className="bg-blue-50 p-2 flex justify-center items-center shadow-inner">
              <button onClick={handlePrevMonth} className="p-1 bg-white rounded-full shadow hover:bg-gray-100 text-blue-800"><ChevronLeft size={20}/></button>
-             <div className="mx-4 flex items-center space-x-2">
-                <Calendar className="text-blue-800" size={18}/>
-                <span className="text-lg font-bold text-blue-900 capitalize">{formatMonthYear(currentDate)}</span>
-             </div>
+             <div className="mx-4 flex items-center space-x-2"><Calendar className="text-blue-800" size={18}/><span className="text-lg font-bold text-blue-900 capitalize">{formatMonthYear(currentDate)}</span></div>
              <button onClick={handleNextMonth} className="p-1 bg-white rounded-full shadow hover:bg-gray-100 text-blue-800"><ChevronRight size={20}/></button>
           </div>
         )}
@@ -499,16 +443,12 @@ export default function App() {
               {renderSummaryCards()}
               <div className="bg-white p-6 rounded-xl shadow-sm">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                  <h3 className="text-lg font-bold text-gray-700 flex items-center gap-2">
-                    <PieIcon size={20}/> Para onde foi o dinheiro?
-                  </h3>
+                  <h3 className="text-lg font-bold text-gray-700 flex items-center gap-2"><PieIcon size={20}/> Para onde foi o dinheiro?</h3>
                   <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
                     <Filter size={16} className="text-gray-500 ml-2"/>
                     <select className="bg-transparent text-sm font-medium text-gray-700 p-1 focus:outline-none cursor-pointer" value={chartFilter} onChange={(e) => setChartFilter(e.target.value)}>
                       <option value="todos">Todas as Despesas (Família)</option>
-                      {users.map(u => (
-                        <option key={u.username} value={u.name}>{u.name}</option>
-                      ))}
+                      {users.map(u => <option key={u.username} value={u.name}>{u.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -523,69 +463,48 @@ export default function App() {
                 <div className="hidden md:block">{renderSummaryCards()}</div>
                 
                 <div className={`bg-white p-4 md:p-6 rounded-xl shadow-sm border-l-4 border-green-500 ${editingId && expenseForm.description ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <h3 className="text-lg font-semibold mb-4 text-green-600 flex items-center justify-between">
-                     <span className="flex items-center"><Plus size={20} className="mr-2"/> Receita</span>
-                     {editingId && incomeForm.description && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">Editando</span>}
-                  </h3>
+                  <h3 className="text-lg font-semibold mb-4 text-green-600 flex items-center justify-between"><span className="flex items-center"><Plus size={20} className="mr-2"/> Receita</span>{editingId && incomeForm.description && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">Editando</span>}</h3>
                   <div className="space-y-3">
                     <input type="text" placeholder="Descrição" className="w-full p-2 border rounded" value={incomeForm.description} onChange={e=>setIncomeForm({...incomeForm, description: e.target.value})} />
                     <input type="number" step="0.01" onWheel={blockWheel} placeholder="Valor (R$)" className="w-full p-2 border rounded" value={incomeForm.amount} onChange={e=>setIncomeForm({...incomeForm, amount: e.target.value})} />
                     <input type="date" className="w-full p-2 border rounded" value={incomeForm.date} onChange={e=>setIncomeForm({...incomeForm, date: e.target.value})} />
-                    
                     <div className="flex gap-2">
-                      <button onClick={() => addTransaction('income')} className={`flex-1 text-white p-2 rounded font-bold ${editingId && incomeForm.description ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'}`}>
-                        {editingId && incomeForm.description ? 'Atualizar Receita' : 'Adicionar'}
-                      </button>
-                      {editingId && incomeForm.description && (
-                        <button onClick={cancelEditing} className="bg-gray-200 text-gray-700 p-2 rounded hover:bg-gray-300"><XCircle size={20}/></button>
-                      )}
+                      <button onClick={() => addTransaction('income')} className={`flex-1 text-white p-2 rounded font-bold ${editingId && incomeForm.description ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'}`}>{editingId && incomeForm.description ? 'Atualizar Receita' : 'Adicionar'}</button>
+                      {editingId && incomeForm.description && <button onClick={cancelEditing} className="bg-gray-200 text-gray-700 p-2 rounded hover:bg-gray-300"><XCircle size={20}/></button>}
                     </div>
                   </div>
                 </div>
 
                 <div className={`bg-white p-4 md:p-6 rounded-xl shadow-sm border-l-4 border-red-500 ${editingId && incomeForm.description ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <h3 className="text-lg font-semibold mb-4 text-red-600 flex items-center justify-between">
-                     <span className="flex items-center"><TrendingDown size={20} className="mr-2"/> Despesa</span>
-                     {editingId && expenseForm.description && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">Editando</span>}
-                  </h3>
+                  <h3 className="text-lg font-semibold mb-4 text-red-600 flex items-center justify-between"><span className="flex items-center"><TrendingDown size={20} className="mr-2"/> Despesa</span>{editingId && expenseForm.description && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">Editando</span>}</h3>
                   <div className="space-y-3">
                     <input type="text" placeholder="Descrição" className="w-full p-2 border rounded" value={expenseForm.description} onChange={e=>setExpenseForm({...expenseForm, description: e.target.value})} />
                     <input type="number" step="0.01" onWheel={blockWheel} placeholder="Valor (R$)" className="w-full p-2 border rounded" value={expenseForm.amount} onChange={e=>setExpenseForm({...expenseForm, amount: e.target.value})} />
+                    
+                    {/* DROPDOWN DINÂMICO DE CATEGORIAS */}
                     <select className="w-full p-2 border rounded bg-white" value={expenseForm.category} onChange={e=>setExpenseForm({...expenseForm, category: e.target.value})}>
-                      <option>Alimentação</option><option>Transporte</option><option>Moradia</option><option>Lazer</option><option>Saúde</option><option>Educação</option><option>Outros</option>
+                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                     </select>
                     
                     <div className="flex gap-2">
-                      <button onClick={() => addTransaction('expense')} className={`flex-1 text-white p-2 rounded font-bold ${editingId && expenseForm.description ? 'bg-orange-500 hover:bg-orange-600' : 'bg-red-600 hover:bg-red-700'}`}>
-                         {editingId && expenseForm.description ? 'Atualizar Despesa' : 'Adicionar'}
-                      </button>
-                      {editingId && expenseForm.description && (
-                        <button onClick={cancelEditing} className="bg-gray-200 text-gray-700 p-2 rounded hover:bg-gray-300"><XCircle size={20}/></button>
-                      )}
+                      <button onClick={() => addTransaction('expense')} className={`flex-1 text-white p-2 rounded font-bold ${editingId && expenseForm.description ? 'bg-orange-500 hover:bg-orange-600' : 'bg-red-600 hover:bg-red-700'}`}>{editingId && expenseForm.description ? 'Atualizar Despesa' : 'Adicionar'}</button>
+                      {editingId && expenseForm.description && <button onClick={cancelEditing} className="bg-gray-200 text-gray-700 p-2 rounded hover:bg-gray-300"><XCircle size={20}/></button>}
                     </div>
                   </div>
                 </div>
               </div>
 
               <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm h-fit">
-                <h3 className="text-lg font-semibold mb-4 flex justify-between items-center">
-                  <span>Extrato</span>
-                  <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">{formatMonthYear(currentDate)}</span>
-                </h3>
+                <h3 className="text-lg font-semibold mb-4 flex justify-between items-center"><span>Extrato</span><span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">{formatMonthYear(currentDate)}</span></h3>
                 <div className="space-y-2 max-h-[600px] overflow-y-auto">
                   {filteredTransactions.slice().reverse().map(t => (
                     <div key={t.id} className={`flex justify-between items-center p-3 border-b border-gray-50 hover:bg-gray-50 ${editingId === t.id ? 'bg-orange-50 border-orange-200' : ''}`}>
                       <div className="overflow-hidden">
                         <p className="font-medium truncate pr-2">{t.description} {editingId === t.id && <span className="text-xs text-orange-600 font-bold">(Editando...)</span>}</p>
-                        <p className="text-[10px] text-gray-400 flex items-center gap-1">
-                           {t.date.split('-').reverse().join('/')} • {t.createdBy || 'Sistema'}
-                        </p>
+                        <p className="text-[10px] text-gray-400 flex items-center gap-1">{t.date.split('-').reverse().join('/')} • {t.createdBy || 'Sistema'}</p>
                       </div>
                       <div className="flex items-center space-x-2 flex-shrink-0">
-                        <span className={`font-bold whitespace-nowrap ${t.type === 'receita' ? 'text-green-600' : 'text-red-600'}`}>
-                          {t.type === 'receita' ? '+' : '-'} {Number(t.value).toFixed(2)}
-                        </span>
-                        
+                        <span className={`font-bold whitespace-nowrap ${t.type === 'receita' ? 'text-green-600' : 'text-red-600'}`}>{t.type === 'receita' ? '+' : '-'} {Number(t.value).toFixed(2)}</span>
                         <button onClick={() => startEditing(t)} className="text-blue-300 hover:text-blue-600" title="Editar"><Edit size={16}/></button>
                         <button onClick={() => removeTransaction(t.id)} className="text-gray-300 hover:text-red-500" title="Excluir"><Trash2 size={16}/></button>
                       </div>
@@ -607,10 +526,7 @@ export default function App() {
                     <form onSubmit={confirmWithdraw}>
                       <input type="number" step="0.01" onWheel={blockWheel} className="w-full p-2 border rounded mb-3" value={withdrawForm.amount} onChange={e => setWithdrawForm({...withdrawForm, amount: e.target.value})} placeholder="Valor (R$)" />
                       <textarea className="w-full p-2 border rounded mb-4" rows="3" placeholder="Justificativa..." value={withdrawForm.reason} onChange={e => setWithdrawForm({...withdrawForm, reason: e.target.value})}></textarea>
-                      <div className="flex justify-end gap-2">
-                        <button type="button" onClick={() => setWithdrawModal({ show: false, goalId: null, goalName: '' })} className="px-4 py-2 bg-gray-200 rounded text-sm">Cancelar</button>
-                        <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded text-sm">Confirmar</button>
-                      </div>
+                      <div className="flex justify-end gap-2"><button type="button" onClick={() => setWithdrawModal({ show: false, goalId: null, goalName: '' })} className="px-4 py-2 bg-gray-200 rounded text-sm">Cancelar</button><button type="submit" className="px-4 py-2 bg-red-600 text-white rounded text-sm">Confirmar</button></div>
                     </form>
                   </div>
                 </div>
@@ -628,31 +544,18 @@ export default function App() {
                 {goals.map(g => {
                   const progress = Math.min(100, ((g.currentAmount || 0) / g.targetAmount) * 100);
                   const smartInfo = calculateSmartGoal(g.targetAmount, g.currentAmount, g.targetDate);
-
                   return (
                     <div key={g.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 relative group">
                       <button onClick={() => deleteGoal(g.id)} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
-                      
                       <h4 className="font-bold text-lg mb-0 text-gray-800">{g.name}</h4>
                       <p className="text-[10px] text-gray-400 mb-2 uppercase tracking-wide">Por: {g.createdBy}</p>
-
                       <div className="bg-purple-50 p-3 rounded-lg mb-4 border border-purple-100">
-                         <div className="flex items-center gap-2 mb-1">
-                            <Calculator size={14} className="text-purple-600"/>
-                            <span className="text-[10px] font-bold text-purple-700 uppercase">Planejamento</span>
-                         </div>
+                         <div className="flex items-center gap-2 mb-1"><Calculator size={14} className="text-purple-600"/><span className="text-[10px] font-bold text-purple-700 uppercase">Planejamento</span></div>
                          <p className="text-sm text-gray-700">{smartInfo.text}</p>
-                         {smartInfo.status === 'pendente' && (
-                             <p className="text-lg font-bold text-purple-600">Guarde R$ {smartInfo.monthly.toFixed(2)}/mês</p>
-                         )}
+                         {smartInfo.status === 'pendente' && <p className="text-lg font-bold text-purple-600">Guarde R$ {smartInfo.monthly.toFixed(2)}/mês</p>}
                       </div>
-
-                      <div className="flex justify-between items-end mb-2">
-                        <span className="text-xl font-bold text-gray-700">R$ {(g.currentAmount || 0).toFixed(2)} <span className="text-xs text-gray-400 font-normal">/ {parseFloat(g.targetAmount).toFixed(0)}</span></span>
-                        <span className="text-xs font-bold text-purple-600 bg-purple-100 px-2 py-1 rounded-full">{progress.toFixed(0)}%</span>
-                      </div>
+                      <div className="flex justify-between items-end mb-2"><span className="text-xl font-bold text-gray-700">R$ {(g.currentAmount || 0).toFixed(2)} <span className="text-xs text-gray-400 font-normal">/ {parseFloat(g.targetAmount).toFixed(0)}</span></span><span className="text-xs font-bold text-purple-600 bg-purple-100 px-2 py-1 rounded-full">{progress.toFixed(0)}%</span></div>
                       <div className="w-full bg-gray-200 rounded-full h-2 mb-4 overflow-hidden"><div className="bg-purple-600 h-2 rounded-full transition-all duration-500" style={{width: `${progress}%`}}></div></div>
-                      
                       <div className="mt-4 pt-4 border-t border-gray-100">
                         <div className="flex gap-2 mb-2">
                             <input type="number" step="0.01" onWheel={blockWheel} placeholder="R$" className="w-1/2 p-1 border rounded text-sm" id={`input-goal-${g.id}`}/>
@@ -669,6 +572,23 @@ export default function App() {
 
           {activeTab === 'settings' && (
             <div className="max-w-2xl mx-auto space-y-8">
+              {/* GERENCIAMENTO DE CATEGORIAS (NOVO) */}
+              <div className="bg-white p-4 md:p-8 rounded-xl shadow-sm">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Tag size={20} className="text-blue-600"/> Categorias de Despesa</h2>
+                <div className="flex gap-2 mb-6">
+                   <input type="text" placeholder="Nova Categoria (Ex: Carro)" className="flex-1 p-2 border rounded" value={newCategory} onChange={e => setNewCategory(e.target.value)} />
+                   <button onClick={addCategory} className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700">Adicionar</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map(cat => (
+                    <div key={cat} className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
+                      <span className="text-gray-700">{cat}</span>
+                      <button onClick={() => removeCategory(cat)} className="text-gray-400 hover:text-red-500"><XCircle size={16}/></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="bg-white p-4 md:p-8 rounded-xl shadow-sm">
                 <h2 className="text-xl font-bold mb-4">Configurações de Conta</h2>
                 <div className="space-y-4">
