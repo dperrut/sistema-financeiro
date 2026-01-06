@@ -16,7 +16,7 @@ export default function App() {
   const [goals, setGoals] = useState([]);
   const [users, setUsers] = useState([]);
   
-  // --- NOVO: Estado de Categorias ---
+  // --- Estado de Categorias ---
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState('');
 
@@ -35,8 +35,7 @@ export default function App() {
   const [userManagementForm, setUserManagementForm] = useState({ username: '', name: '', email: '' });
   const [changePasswordForm, setChangePasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [incomeForm, setIncomeForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '' });
-  // Atualizado: category agora começa vazia ou com a primeira padrão
-  const [expenseForm, setExpenseForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: 'Alimentação', paymentMethod: 'PIX' });
+  const [expenseForm, setExpenseForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '', paymentMethod: 'PIX' });
   const [goalForm, setGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', description: '' });
 
   // Cores para o Gráfico
@@ -65,14 +64,17 @@ export default function App() {
       if (savedTrans) setTransactions(JSON.parse(savedTrans));
       if (savedGoals) setGoals(JSON.parse(savedGoals));
 
-      // 3. Categorias (NOVO)
+      // 3. Categorias
       const savedCats = localStorage.getItem('system_categories');
       if (savedCats) {
-        setCategories(JSON.parse(savedCats));
+        const parsedCats = JSON.parse(savedCats);
+        setCategories(parsedCats);
+        setExpenseForm(prev => ({ ...prev, category: parsedCats[0] || 'Outros' }));
       } else {
         const defaultCats = ['Alimentação', 'Transporte', 'Moradia', 'Lazer', 'Saúde', 'Educação', 'Outros'];
         localStorage.setItem('system_categories', JSON.stringify(defaultCats));
         setCategories(defaultCats);
+        setExpenseForm(prev => ({ ...prev, category: defaultCats[0] }));
       }
 
     } catch (error) {
@@ -99,14 +101,14 @@ export default function App() {
     if (window.confirm("Isso apagará TODOS os dados. Confirmar?")) {
       localStorage.removeItem('system_transactions');
       localStorage.removeItem('system_goals');
-      localStorage.removeItem('system_categories'); // Reseta categorias também
+      localStorage.removeItem('system_categories');
       setTransactions([]);
       setGoals([]);
-      window.location.reload(); // Recarrega para voltar categorias padrão
+      window.location.reload();
     }
   };
 
-  // --- Lógica de Categorias (NOVO) ---
+  // --- Lógica de Categorias ---
   const addCategory = () => {
     if (!newCategory) return;
     if (categories.includes(newCategory)) return alert('Categoria já existe!');
@@ -117,11 +119,10 @@ export default function App() {
   };
 
   const removeCategory = (catToDelete) => {
-    if (window.confirm(`Excluir categoria "${catToDelete}"? (Lançamentos antigos não serão afetados)`)) {
+    if (window.confirm(`Excluir categoria "${catToDelete}"?`)) {
       const updated = categories.filter(c => c !== catToDelete);
       setCategories(updated);
       localStorage.setItem('system_categories', JSON.stringify(updated));
-      // Se a categoria selecionada no form for a excluída, volta para a primeira
       if (expenseForm.category === catToDelete) {
         setExpenseForm({...expenseForm, category: updated[0] || ''});
       }
@@ -481,7 +482,6 @@ export default function App() {
                     <input type="text" placeholder="Descrição" className="w-full p-2 border rounded" value={expenseForm.description} onChange={e=>setExpenseForm({...expenseForm, description: e.target.value})} />
                     <input type="number" step="0.01" onWheel={blockWheel} placeholder="Valor (R$)" className="w-full p-2 border rounded" value={expenseForm.amount} onChange={e=>setExpenseForm({...expenseForm, amount: e.target.value})} />
                     
-                    {/* DROPDOWN DINÂMICO DE CATEGORIAS */}
                     <select className="w-full p-2 border rounded bg-white" value={expenseForm.category} onChange={e=>setExpenseForm({...expenseForm, category: e.target.value})}>
                       {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                     </select>
@@ -572,7 +572,7 @@ export default function App() {
 
           {activeTab === 'settings' && (
             <div className="max-w-2xl mx-auto space-y-8">
-              {/* GERENCIAMENTO DE CATEGORIAS (NOVO) */}
+              {/* GERENCIAMENTO DE CATEGORIAS */}
               <div className="bg-white p-4 md:p-8 rounded-xl shadow-sm">
                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Tag size={20} className="text-blue-600"/> Categorias de Despesa</h2>
                 <div className="flex gap-2 mb-6">
