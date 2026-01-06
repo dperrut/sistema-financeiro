@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, Target, Plus, Trash2, LogOut, Users, Lock, Eye, EyeOff, ChevronLeft, ChevronRight, Calendar, AlertTriangle, User, Calculator, PieChart as PieIcon, Filter } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Target, Plus, Trash2, LogOut, Users, Lock, Eye, EyeOff, ChevronLeft, ChevronRight, Calendar, AlertTriangle, PieChart as PieIcon, Filter, Edit2, XCircle } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -18,7 +18,10 @@ export default function App() {
 
   // --- Controle de Mês e Filtros ---
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [chartFilter, setChartFilter] = useState('todos'); // NOVO: Filtro do Gráfico
+  const [chartFilter, setChartFilter] = useState('todos');
+  
+  // --- Controle de Edição (NOVO) ---
+  const [editingId, setEditingId] = useState(null); // Guarda o ID de quem estamos editando
   
   // Controle de Saque de Metas
   const [withdrawModal, setWithdrawModal] = useState({ show: false, goalId: null, goalName: '' });
@@ -135,15 +138,26 @@ export default function App() {
   });
 
   // --- Cálculos ---
-  const totalIncome = filteredTransactions
+  const monthlyIncome = filteredTransactions
     .filter(t => t.type === 'receita')
     .reduce((acc, curr) => acc + Number(curr.value), 0);
 
-  const totalExpense = filteredTransactions
+  const monthlyExpense = filteredTransactions
     .filter(t => t.type === 'despesa')
     .reduce((acc, curr) => acc + Number(curr.value), 0);
 
-  const balance = totalIncome - totalExpense;
+  const monthlyBalance = monthlyIncome - monthlyExpense;
+
+  // Cálculo Global (Acumulado)
+  const totalGlobalIncome = transactions
+    .filter(t => t.type === 'receita')
+    .reduce((acc, curr) => acc + Number(curr.value), 0);
+    
+  const totalGlobalExpense = transactions
+    .filter(t => t.type === 'despesa')
+    .reduce((acc, curr) => acc + Number(curr.value), 0);
+
+  const accumulatedBalance = totalGlobalIncome - totalGlobalExpense;
 
   const calculateSmartGoal = (targetAmount, currentAmount, targetDate) => {
     const today = new Date();
@@ -158,9 +172,94 @@ export default function App() {
     return { status: 'pendente', months, monthly, text: `Faltam ${months} meses` };
   };
 
-  // --- CRUD ---
+  // --- CRUD e Lógica de Edição ---
   const blockWheel = (e) => e.target.blur();
 
+  // Função que inicia a edição: Pega os dados da transação e joga no formulário
+  const startEditing = (transaction) => {
+    setEditingId(transaction.id);
+    if (transaction.type === 'receita') {
+      setIncomeForm({
+        date: transaction.date,
+        description: transaction.description,
+        amount: transaction.value.toFixed(2)
+      });
+      // Rola a tela para cima (útil no celular)
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      setExpenseForm({
+        date: transaction.date,
+        description: transaction.description,
+        amount: transaction.value.toFixed(2),
+        category: transaction.category,
+        paymentMethod: transaction.paymentMethod || 'PIX'
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Função para cancelar edição e limpar formulário
+  const cancelEditing = () => {
+    setEditingId(null);
+    setIncomeForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '' });
+    setExpenseForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: 'Alimentação', paymentMethod: 'PIX' });
+  };
+
+  const addTransaction = (type) => {
+    const form = type === 'income' ? incomeForm : expenseForm;
+    if (!form.description || !form.amount) return alert('Preencha os dados!');
+    const sanitizedAmount = form.amount.toString().replace(',', '.');
+    const numericAmount = parseFloat(sanitizedAmount);
+    if (isNaN(numericAmount)) return alert("Valor inválido");
+
+    // LÓGICA DUPLA: Se tiver editingId é ATUALIZAÇÃO, senão é CRIAÇÃO
+    if (editingId) {
+       // Atualizar Existente
+       const updatedTransactions = transactions.map(t => {
+          if (t.id === editingId) {
+             return {
+                ...t,
+                ...form,
+                value: numericAmount,
+                // Mantemos o createdBy original ou atualizamos? Vamos manter o original por segurança
+             };
+          }
+          return t;
+       });
+       setTransactions(updatedTransactions);
+       localStorage.setItem('system_transactions', JSON.stringify(updatedTransactions));
+       alert("Lançamento atualizado com sucesso!");
+       cancelEditing(); // Limpa tudo
+    } else {
+       // Criar Novo
+       const newTransaction = {
+          id: Date.now(),
+          ...form,
+          type: type === 'income' ? 'receita' : 'despesa',
+          value: numericAmount,
+          createdBy: currentUser.name
+       };
+       const updatedTransactions = [...transactions, newTransaction];
+       setTransactions(updatedTransactions);
+       localStorage.setItem('system_transactions', JSON.stringify(updatedTransactions));
+       
+       // Limpar formulário após criar
+       if (type === 'income') setIncomeForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '' });
+       else setExpenseForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: 'Alimentação', paymentMethod: 'PIX' });
+       alert('Lançamento adicionado!');
+    }
+  };
+
+  const removeTransaction = (id) => {
+    if(window.confirm("Deseja apagar este lançamento?")) {
+      const updated = transactions.filter(t => t.id !== id);
+      setTransactions(updated);
+      localStorage.setItem('system_transactions', JSON.stringify(updated));
+      if (editingId === id) cancelEditing(); // Se apagar o que está editando, cancela a edição
+    }
+  };
+
+  // --- Outros CRUDs (Metas, Usuários) ---
   const createUser = () => {
     if (!userManagementForm.username || !userManagementForm.name || !userManagementForm.email) return alert('Preencha tudo!');
     if (users.find(u => u.username === userManagementForm.username)) return alert('Usuário já existe!');
@@ -189,38 +288,6 @@ export default function App() {
     setCurrentUser({ ...currentUser, password: changePasswordForm.newPassword });
     setChangePasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     alert('Senha alterada!');
-  };
-
-  const addTransaction = (type) => {
-    const form = type === 'income' ? incomeForm : expenseForm;
-    if (!form.description || !form.amount) return alert('Preencha os dados!');
-    const sanitizedAmount = form.amount.toString().replace(',', '.');
-    const numericAmount = parseFloat(sanitizedAmount);
-    if (isNaN(numericAmount)) return alert("Valor inválido");
-
-    const newTransaction = {
-      id: Date.now(),
-      ...form,
-      type: type === 'income' ? 'receita' : 'despesa',
-      value: numericAmount,
-      createdBy: currentUser.name
-    };
-    
-    const updatedTransactions = [...transactions, newTransaction];
-    setTransactions(updatedTransactions);
-    localStorage.setItem('system_transactions', JSON.stringify(updatedTransactions));
-    
-    if (type === 'income') setIncomeForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '' });
-    else setExpenseForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: 'Alimentação', paymentMethod: 'PIX' });
-    alert('Lançamento adicionado!');
-  };
-
-  const removeTransaction = (id) => {
-    if(window.confirm("Deseja apagar este lançamento?")) {
-      const updated = transactions.filter(t => t.id !== id);
-      setTransactions(updated);
-      localStorage.setItem('system_transactions', JSON.stringify(updated));
-    }
   };
 
   const addGoal = () => {
@@ -288,9 +355,8 @@ export default function App() {
     alert("Resgate realizado!");
   };
 
-  // --- Componente de Gráfico (COM FILTRO) ---
+  // --- Componente de Gráfico ---
   const ExpenseChart = () => {
-    // FILTRO DINÂMICO AQUI
     const expenses = filteredTransactions.filter(t => {
        const isExpense = t.type === 'despesa';
        const matchesUser = chartFilter === 'todos' || t.createdBy === chartFilter;
@@ -299,7 +365,6 @@ export default function App() {
 
     if (expenses.length === 0) return <div className="text-center text-gray-400 py-10">Sem despesas para este filtro.</div>;
 
-    // Agrupa despesas por categoria
     const categoryTotals = expenses.reduce((acc, curr) => {
       acc[curr.category] = (acc[curr.category] || 0) + curr.value;
       return acc;
@@ -313,7 +378,6 @@ export default function App() {
       color: COLORS[index % COLORS.length]
     })).sort((a, b) => b.value - a.value);
 
-    // Cria o degradê do gráfico de pizza
     let currentDeg = 0;
     const gradientParts = data.map(item => {
       const start = currentDeg;
@@ -324,7 +388,6 @@ export default function App() {
 
     return (
       <div className="flex flex-col md:flex-row items-center justify-around">
-        {/* O Gráfico Visual */}
         <div className="relative w-48 h-48 rounded-full shadow-lg mb-6 md:mb-0" 
              style={{ background: `conic-gradient(${gradientParts})` }}>
            <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center">
@@ -334,8 +397,6 @@ export default function App() {
              </div>
            </div>
         </div>
-
-        {/* A Legenda */}
         <div className="space-y-2 w-full md:w-auto">
           {data.map(item => (
             <div key={item.name} className="flex items-center justify-between min-w-[200px] text-sm">
@@ -354,36 +415,9 @@ export default function App() {
     );
   };
 
-  // --- Cálculos ---
-  
-  // 1. Cálculos do Mês Atual (Filtrados)
-  const monthlyIncome = filteredTransactions
-    .filter(t => t.type === 'receita')
-    .reduce((acc, curr) => acc + Number(curr.value), 0);
-
-  const monthlyExpense = filteredTransactions
-    .filter(t => t.type === 'despesa')
-    .reduce((acc, curr) => acc + Number(curr.value), 0);
-
-  const monthlyBalance = monthlyIncome - monthlyExpense;
-
-  // 2. Cálculo GLOBAL (Saldo Acumulado de todos os tempos)
-  // Pega TODAS as transações sem olhar a data
-  const totalGlobalIncome = transactions
-    .filter(t => t.type === 'receita')
-    .reduce((acc, curr) => acc + Number(curr.value), 0);
-    
-  const totalGlobalExpense = transactions
-    .filter(t => t.type === 'despesa')
-    .reduce((acc, curr) => acc + Number(curr.value), 0);
-
-  const accumulatedBalance = totalGlobalIncome - totalGlobalExpense;
-
-  // ... (função calculateSmartGoal continua igual) ...
-
   const SummaryCards = () => (
     <div className="space-y-6 mb-6">
-      {/* NOVO: Card de Saldo Total (O "Dinheiro que Sobrou") */}
+      {/* Saldo Acumulado Global */}
       <div className="bg-gradient-to-r from-blue-900 to-blue-700 p-6 rounded-xl shadow-lg text-white flex justify-between items-center transform hover:scale-[1.01] transition-transform">
         <div>
           <p className="text-blue-100 text-sm font-medium uppercase tracking-wider mb-1">Saldo Total Acumulado (Caixa)</p>
@@ -395,7 +429,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* Cards do Mês (Desempenho Mensal) */}
+      {/* Cards do Mês */}
       <h3 className="text-gray-500 font-bold text-sm uppercase tracking-wide">Desempenho de {formatMonthYear(currentDate)}</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500 flex justify-between items-center">
@@ -522,14 +556,11 @@ export default function App() {
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
               <SummaryCards />
-              
               <div className="bg-white p-6 rounded-xl shadow-sm">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                   <h3 className="text-lg font-bold text-gray-700 flex items-center gap-2">
                     <PieIcon size={20}/> Para onde foi o dinheiro?
                   </h3>
-                  
-                  {/* SELETOR DE USUÁRIO (O DESAFIO CUMPRIDO!) */}
                   <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
                     <Filter size={16} className="text-gray-500 ml-2"/>
                     <select 
@@ -544,7 +575,6 @@ export default function App() {
                     </select>
                   </div>
                 </div>
-                
                 <ExpenseChart />
               </div>
             </div>
@@ -555,28 +585,54 @@ export default function App() {
               <div className="space-y-6">
                 <div className="hidden md:block"><SummaryCards /></div>
                 
-                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm">
-                  <h3 className="text-lg font-semibold mb-4 text-green-600 flex items-center"><Plus size={20} className="mr-2"/> Receita</h3>
+                {/* FORMULÁRIO DE RECEITA (Se tiver editando Despesa, esconde este, ou bloqueia) */}
+                <div className={`bg-white p-4 md:p-6 rounded-xl shadow-sm border-l-4 border-green-500 ${editingId && expenseForm.description ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <h3 className="text-lg font-semibold mb-4 text-green-600 flex items-center justify-between">
+                     <span className="flex items-center"><Plus size={20} className="mr-2"/> Receita</span>
+                     {editingId && incomeForm.description && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">Editando</span>}
+                  </h3>
                   <div className="space-y-3">
                     <input type="text" placeholder="Descrição" className="w-full p-2 border rounded" value={incomeForm.description} onChange={e=>setIncomeForm({...incomeForm, description: e.target.value})} />
                     <input type="number" step="0.01" onWheel={blockWheel} placeholder="Valor (R$)" className="w-full p-2 border rounded" value={incomeForm.amount} onChange={e=>setIncomeForm({...incomeForm, amount: e.target.value})} />
                     <input type="date" className="w-full p-2 border rounded" value={incomeForm.date} onChange={e=>setIncomeForm({...incomeForm, date: e.target.value})} />
-                    <button onClick={() => addTransaction('income')} className="w-full bg-green-600 text-white p-2 rounded hover:bg-green-700 font-bold">Adicionar</button>
+                    
+                    <div className="flex gap-2">
+                      <button onClick={() => addTransaction('income')} className={`flex-1 text-white p-2 rounded font-bold ${editingId && incomeForm.description ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'}`}>
+                        {editingId && incomeForm.description ? 'Atualizar Receita' : 'Adicionar'}
+                      </button>
+                      {editingId && incomeForm.description && (
+                        <button onClick={cancelEditing} className="bg-gray-200 text-gray-700 p-2 rounded hover:bg-gray-300"><XCircle size={20}/></button>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm">
-                  <h3 className="text-lg font-semibold mb-4 text-red-600 flex items-center"><TrendingDown size={20} className="mr-2"/> Despesa</h3>
+
+                {/* FORMULÁRIO DE DESPESA */}
+                <div className={`bg-white p-4 md:p-6 rounded-xl shadow-sm border-l-4 border-red-500 ${editingId && incomeForm.description ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <h3 className="text-lg font-semibold mb-4 text-red-600 flex items-center justify-between">
+                     <span className="flex items-center"><TrendingDown size={20} className="mr-2"/> Despesa</span>
+                     {editingId && expenseForm.description && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">Editando</span>}
+                  </h3>
                   <div className="space-y-3">
                     <input type="text" placeholder="Descrição" className="w-full p-2 border rounded" value={expenseForm.description} onChange={e=>setExpenseForm({...expenseForm, description: e.target.value})} />
                     <input type="number" step="0.01" onWheel={blockWheel} placeholder="Valor (R$)" className="w-full p-2 border rounded" value={expenseForm.amount} onChange={e=>setExpenseForm({...expenseForm, amount: e.target.value})} />
                     <select className="w-full p-2 border rounded bg-white" value={expenseForm.category} onChange={e=>setExpenseForm({...expenseForm, category: e.target.value})}>
                       <option>Alimentação</option><option>Transporte</option><option>Moradia</option><option>Lazer</option><option>Saúde</option><option>Educação</option><option>Outros</option>
                     </select>
-                    <button onClick={() => addTransaction('expense')} className="w-full bg-red-600 text-white p-2 rounded hover:bg-red-700 font-bold">Adicionar</button>
+                    
+                    <div className="flex gap-2">
+                      <button onClick={() => addTransaction('expense')} className={`flex-1 text-white p-2 rounded font-bold ${editingId && expenseForm.description ? 'bg-orange-500 hover:bg-orange-600' : 'bg-red-600 hover:bg-red-700'}`}>
+                         {editingId && expenseForm.description ? 'Atualizar Despesa' : 'Adicionar'}
+                      </button>
+                      {editingId && expenseForm.description && (
+                        <button onClick={cancelEditing} className="bg-gray-200 text-gray-700 p-2 rounded hover:bg-gray-300"><XCircle size={20}/></button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
+              {/* LISTA DE EXTRATO */}
               <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm h-fit">
                 <h3 className="text-lg font-semibold mb-4 flex justify-between items-center">
                   <span>Extrato</span>
@@ -584,9 +640,9 @@ export default function App() {
                 </h3>
                 <div className="space-y-2 max-h-[600px] overflow-y-auto">
                   {filteredTransactions.slice().reverse().map(t => (
-                    <div key={t.id} className="flex justify-between items-center p-3 border-b border-gray-50 hover:bg-gray-50">
+                    <div key={t.id} className={`flex justify-between items-center p-3 border-b border-gray-50 hover:bg-gray-50 ${editingId === t.id ? 'bg-orange-50 border-orange-200' : ''}`}>
                       <div className="overflow-hidden">
-                        <p className="font-medium truncate pr-2">{t.description}</p>
+                        <p className="font-medium truncate pr-2">{t.description} {editingId === t.id && <span className="text-xs text-orange-600 font-bold">(Editando...)</span>}</p>
                         <p className="text-[10px] text-gray-400 flex items-center gap-1">
                            {t.date.split('-').reverse().join('/')} • {t.createdBy || 'Sistema'}
                         </p>
@@ -595,7 +651,10 @@ export default function App() {
                         <span className={`font-bold whitespace-nowrap ${t.type === 'receita' ? 'text-green-600' : 'text-red-600'}`}>
                           {t.type === 'receita' ? '+' : '-'} {Number(t.value).toFixed(2)}
                         </span>
-                        <button onClick={() => removeTransaction(t.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={16}/></button>
+                        
+                        {/* BOTÕES DE AÇÃO: EDITAR E EXCLUIR */}
+                        <button onClick={() => startEditing(t)} className="text-blue-300 hover:text-blue-600" title="Editar"><Edit2 size={16}/></button>
+                        <button onClick={() => removeTransaction(t.id)} className="text-gray-300 hover:text-red-500" title="Excluir"><Trash2 size={16}/></button>
                       </div>
                     </div>
                   ))}
