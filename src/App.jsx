@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, Target, Plus, Trash2, LogOut, Users, Lock, Eye, EyeOff, ChevronLeft, ChevronRight, Calendar, AlertTriangle, User, Calculator } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Target, Plus, Trash2, LogOut, Users, Lock, Eye, EyeOff, ChevronLeft, ChevronRight, Calendar, AlertTriangle, User, Calculator, PieChart as PieIcon, Filter } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -16,8 +16,9 @@ export default function App() {
   const [goals, setGoals] = useState([]);
   const [users, setUsers] = useState([]);
 
-  // --- Controle de Mês ---
-  const [currentDate, setCurrentDate] = useState(new Date()); 
+  // --- Controle de Mês e Filtros ---
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [chartFilter, setChartFilter] = useState('todos'); // NOVO: Filtro do Gráfico
   
   // Controle de Saque de Metas
   const [withdrawModal, setWithdrawModal] = useState({ show: false, goalId: null, goalName: '' });
@@ -29,6 +30,9 @@ export default function App() {
   const [incomeForm, setIncomeForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '' });
   const [expenseForm, setExpenseForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: 'Alimentação', paymentMethod: 'PIX' });
   const [goalForm, setGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', description: '' });
+
+  // Cores para o Gráfico
+  const COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1'];
 
   // Inicialização
   useEffect(() => {
@@ -154,8 +158,8 @@ export default function App() {
     return { status: 'pendente', months, monthly, text: `Faltam ${months} meses` };
   };
 
-  // --- CRUD (Com autoria e proteção de scroll) ---
-  const blockWheel = (e) => e.target.blur(); // FUNÇÃO MÁGICA: Tira o foco se rolar o mouse
+  // --- CRUD ---
+  const blockWheel = (e) => e.target.blur();
 
   const createUser = () => {
     if (!userManagementForm.username || !userManagementForm.name || !userManagementForm.email) return alert('Preencha tudo!');
@@ -284,37 +288,104 @@ export default function App() {
     alert("Resgate realizado!");
   };
 
+  // --- Componente de Gráfico (COM FILTRO) ---
+  const ExpenseChart = () => {
+    // FILTRO DINÂMICO AQUI
+    const expenses = filteredTransactions.filter(t => {
+       const isExpense = t.type === 'despesa';
+       const matchesUser = chartFilter === 'todos' || t.createdBy === chartFilter;
+       return isExpense && matchesUser;
+    });
+
+    if (expenses.length === 0) return <div className="text-center text-gray-400 py-10">Sem despesas para este filtro.</div>;
+
+    // Agrupa despesas por categoria
+    const categoryTotals = expenses.reduce((acc, curr) => {
+      acc[curr.category] = (acc[curr.category] || 0) + curr.value;
+      return acc;
+    }, {});
+
+    const total = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
+    const data = Object.keys(categoryTotals).map((cat, index) => ({
+      name: cat,
+      value: categoryTotals[cat],
+      percent: (categoryTotals[cat] / total) * 100,
+      color: COLORS[index % COLORS.length]
+    })).sort((a, b) => b.value - a.value);
+
+    // Cria o degradê do gráfico de pizza
+    let currentDeg = 0;
+    const gradientParts = data.map(item => {
+      const start = currentDeg;
+      const end = currentDeg + (item.percent * 3.6);
+      currentDeg = end;
+      return `${item.color} ${start}deg ${end}deg`;
+    }).join(', ');
+
+    return (
+      <div className="flex flex-col md:flex-row items-center justify-around">
+        {/* O Gráfico Visual */}
+        <div className="relative w-48 h-48 rounded-full shadow-lg mb-6 md:mb-0" 
+             style={{ background: `conic-gradient(${gradientParts})` }}>
+           <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center">
+             <div className="text-center">
+               <p className="text-xs text-gray-500">Total ({chartFilter === 'todos' ? 'Todos' : chartFilter})</p>
+               <p className="font-bold text-gray-800">R$ {total.toFixed(0)}</p>
+             </div>
+           </div>
+        </div>
+
+        {/* A Legenda */}
+        <div className="space-y-2 w-full md:w-auto">
+          {data.map(item => (
+            <div key={item.name} className="flex items-center justify-between min-w-[200px] text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{background: item.color}}></div>
+                <span className="text-gray-700">{item.name}</span>
+              </div>
+              <div className="flex gap-4">
+                 <span className="font-semibold">R$ {item.value.toFixed(2)}</span>
+                 <span className="text-gray-400 text-xs w-8 text-right">{item.percent.toFixed(0)}%</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const SummaryCards = () => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500 flex justify-between items-center">
         <div>
-          <p className="text-gray-500 text-sm">Receitas ({formatMonthYear(currentDate)})</p>
+          <p className="text-gray-500 text-xs uppercase tracking-wider">Receitas</p>
           <p className="text-xl font-bold text-green-600">R$ {totalIncome.toFixed(2)}</p>
         </div>
-        <TrendingUp className="text-green-500" size={24} />
+        <TrendingUp className="text-green-500 opacity-50" size={24} />
       </div>
       <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500 flex justify-between items-center">
         <div>
-          <p className="text-gray-500 text-sm">Despesas ({formatMonthYear(currentDate)})</p>
+          <p className="text-gray-500 text-xs uppercase tracking-wider">Despesas</p>
           <p className="text-xl font-bold text-red-600">R$ {totalExpense.toFixed(2)}</p>
         </div>
-        <TrendingDown className="text-red-500" size={24} />
+        <TrendingDown className="text-red-500 opacity-50" size={24} />
       </div>
       <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500 flex justify-between items-center">
         <div>
-          <p className="text-gray-500 text-sm">Saldo ({formatMonthYear(currentDate)})</p>
+          <p className="text-gray-500 text-xs uppercase tracking-wider">Saldo</p>
           <p className={`text-xl font-bold ${balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>R$ {balance.toFixed(2)}</p>
         </div>
-        <DollarSign className="text-blue-500" size={24} />
+        <DollarSign className="text-blue-500 opacity-50" size={24} />
       </div>
     </div>
   );
 
+  // --- Renderização Principal ---
   if (!currentUser) {
     if (showForgotPassword) {
       return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-          <div className="bg-white p-8 rounded-lg shadow-md w-96">
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+          <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
             <h1 className="text-2xl font-bold mb-6 text-center text-blue-600">Recuperar Senha</h1>
             <p className="text-sm text-gray-600 mb-4 text-center">Digite seu e-mail cadastrado.</p>
             <form onSubmit={handleResetRequest}>
@@ -327,8 +398,8 @@ export default function App() {
       );
     }
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md w-96">
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
           <h1 className="text-2xl font-bold mb-6 text-center text-blue-600">Minhas Finanças</h1>
           <form onSubmit={handleLogin}>
             <div className="mb-4">
@@ -354,6 +425,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-gray-100">
+      {/* Menu Desktop */}
       <div className="w-64 bg-blue-900 text-white p-6 flex flex-col hidden md:flex">
         <h1 className="text-2xl font-bold mb-8">Finanças App</h1>
         <div className="flex-1 space-y-4">
@@ -367,11 +439,11 @@ export default function App() {
       </div>
 
       {/* Menu Mobile */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-blue-900 text-white flex justify-around p-3 z-50">
-          <button onClick={() => setActiveTab('dashboard')}><TrendingUp size={24} /></button>
-          <button onClick={() => setActiveTab('transactions')}><DollarSign size={24} /></button>
-          <button onClick={() => setActiveTab('goals')}><Target size={24} /></button>
-          <button onClick={() => setActiveTab('settings')}><Lock size={24} /></button>
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 text-gray-500 flex justify-around p-3 z-50 shadow-lg">
+          <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center ${activeTab === 'dashboard' ? 'text-blue-600' : ''}`}><TrendingUp size={24} /><span className="text-[10px]">Visão</span></button>
+          <button onClick={() => setActiveTab('transactions')} className={`flex flex-col items-center ${activeTab === 'transactions' ? 'text-blue-600' : ''}`}><DollarSign size={24} /><span className="text-[10px]">Lançar</span></button>
+          <button onClick={() => setActiveTab('goals')} className={`flex flex-col items-center ${activeTab === 'goals' ? 'text-blue-600' : ''}`}><Target size={24} /><span className="text-[10px]">Metas</span></button>
+          <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center ${activeTab === 'settings' ? 'text-blue-600' : ''}`}><Lock size={24} /><span className="text-[10px]">Conta</span></button>
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden mb-16 md:mb-0">
@@ -383,21 +455,23 @@ export default function App() {
             {activeTab === 'settings' && 'Segurança e Configurações'}
             {activeTab === 'admin' && 'Administração do Sistema'}
           </h2>
-          <h2 className="text-lg font-bold text-gray-800 md:hidden">Finanças App</h2>
+          <h2 className="text-lg font-bold text-gray-800 md:hidden flex items-center gap-2">
+             Finanças App
+          </h2>
           <div className="flex items-center space-x-4">
-            <span className="text-gray-600 text-sm">Olá, <strong>{currentUser.name}</strong></span>
+            <span className="text-gray-600 text-sm hidden md:inline">Olá, <strong>{currentUser.name}</strong></span>
             <button onClick={handleLogout} className="md:hidden text-red-500"><LogOut size={20}/></button>
           </div>
         </header>
 
         {(activeTab === 'dashboard' || activeTab === 'transactions') && (
-          <div className="bg-blue-100 p-3 flex justify-center items-center shadow-inner">
-             <button onClick={handlePrevMonth} className="p-2 bg-white rounded-full shadow hover:bg-gray-50 text-blue-800"><ChevronLeft size={24}/></button>
-             <div className="mx-6 flex items-center space-x-2">
-                <Calendar className="text-blue-800" size={24}/>
-                <span className="text-xl font-bold text-blue-900 capitalize">{formatMonthYear(currentDate)}</span>
+          <div className="bg-blue-50 p-2 flex justify-center items-center shadow-inner">
+             <button onClick={handlePrevMonth} className="p-1 bg-white rounded-full shadow hover:bg-gray-100 text-blue-800"><ChevronLeft size={20}/></button>
+             <div className="mx-4 flex items-center space-x-2">
+                <Calendar className="text-blue-800" size={18}/>
+                <span className="text-lg font-bold text-blue-900 capitalize">{formatMonthYear(currentDate)}</span>
              </div>
-             <button onClick={handleNextMonth} className="p-2 bg-white rounded-full shadow hover:bg-gray-50 text-blue-800"><ChevronRight size={24}/></button>
+             <button onClick={handleNextMonth} className="p-1 bg-white rounded-full shadow hover:bg-gray-100 text-blue-800"><ChevronRight size={20}/></button>
           </div>
         )}
 
@@ -405,9 +479,30 @@ export default function App() {
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
               <SummaryCards />
-              <div className="bg-white p-6 rounded-xl shadow-sm text-center py-10 text-gray-400">
-                <p className="mb-2">Painel de Gráficos (Em Breve)</p>
-                <div className="w-32 h-32 bg-gray-100 rounded-full mx-auto border-4 border-gray-200 border-t-blue-500 animate-spin"></div>
+              
+              <div className="bg-white p-6 rounded-xl shadow-sm">
+                <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                  <h3 className="text-lg font-bold text-gray-700 flex items-center gap-2">
+                    <PieIcon size={20}/> Para onde foi o dinheiro?
+                  </h3>
+                  
+                  {/* SELETOR DE USUÁRIO (O DESAFIO CUMPRIDO!) */}
+                  <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
+                    <Filter size={16} className="text-gray-500 ml-2"/>
+                    <select 
+                      className="bg-transparent text-sm font-medium text-gray-700 p-1 focus:outline-none cursor-pointer"
+                      value={chartFilter}
+                      onChange={(e) => setChartFilter(e.target.value)}
+                    >
+                      <option value="todos">Todas as Despesas (Família)</option>
+                      {users.map(u => (
+                        <option key={u.username} value={u.name}>{u.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                
+                <ExpenseChart />
               </div>
             </div>
           )}
@@ -417,53 +512,51 @@ export default function App() {
               <div className="space-y-6">
                 <div className="hidden md:block"><SummaryCards /></div>
                 
-                <div className="bg-white p-6 rounded-xl shadow-sm">
-                  <h3 className="text-lg font-semibold mb-4 text-green-600 flex items-center"><Plus size={20} className="mr-2"/> Nova Receita</h3>
+                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm">
+                  <h3 className="text-lg font-semibold mb-4 text-green-600 flex items-center"><Plus size={20} className="mr-2"/> Receita</h3>
                   <div className="space-y-3">
                     <input type="text" placeholder="Descrição" className="w-full p-2 border rounded" value={incomeForm.description} onChange={e=>setIncomeForm({...incomeForm, description: e.target.value})} />
-                    {/* INPUT BLINDADO CONTRA SCROLL */}
                     <input type="number" step="0.01" onWheel={blockWheel} placeholder="Valor (R$)" className="w-full p-2 border rounded" value={incomeForm.amount} onChange={e=>setIncomeForm({...incomeForm, amount: e.target.value})} />
                     <input type="date" className="w-full p-2 border rounded" value={incomeForm.date} onChange={e=>setIncomeForm({...incomeForm, date: e.target.value})} />
-                    <button onClick={() => addTransaction('income')} className="w-full bg-green-600 text-white p-2 rounded hover:bg-green-700">Adicionar Receita</button>
+                    <button onClick={() => addTransaction('income')} className="w-full bg-green-600 text-white p-2 rounded hover:bg-green-700 font-bold">Adicionar</button>
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm">
-                  <h3 className="text-lg font-semibold mb-4 text-red-600 flex items-center"><TrendingDown size={20} className="mr-2"/> Nova Despesa</h3>
+                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm">
+                  <h3 className="text-lg font-semibold mb-4 text-red-600 flex items-center"><TrendingDown size={20} className="mr-2"/> Despesa</h3>
                   <div className="space-y-3">
                     <input type="text" placeholder="Descrição" className="w-full p-2 border rounded" value={expenseForm.description} onChange={e=>setExpenseForm({...expenseForm, description: e.target.value})} />
-                    {/* INPUT BLINDADO CONTRA SCROLL */}
                     <input type="number" step="0.01" onWheel={blockWheel} placeholder="Valor (R$)" className="w-full p-2 border rounded" value={expenseForm.amount} onChange={e=>setExpenseForm({...expenseForm, amount: e.target.value})} />
-                    <select className="w-full p-2 border rounded" value={expenseForm.category} onChange={e=>setExpenseForm({...expenseForm, category: e.target.value})}>
-                      <option>Alimentação</option><option>Transporte</option><option>Moradia</option><option>Lazer</option><option>Saúde</option><option>Outros</option>
+                    <select className="w-full p-2 border rounded bg-white" value={expenseForm.category} onChange={e=>setExpenseForm({...expenseForm, category: e.target.value})}>
+                      <option>Alimentação</option><option>Transporte</option><option>Moradia</option><option>Lazer</option><option>Saúde</option><option>Educação</option><option>Outros</option>
                     </select>
-                    <button onClick={() => addTransaction('expense')} className="w-full bg-red-600 text-white p-2 rounded hover:bg-red-700">Adicionar Despesa</button>
+                    <button onClick={() => addTransaction('expense')} className="w-full bg-red-600 text-white p-2 rounded hover:bg-red-700 font-bold">Adicionar</button>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-xl shadow-sm h-fit">
+              <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm h-fit">
                 <h3 className="text-lg font-semibold mb-4 flex justify-between items-center">
-                  <span>Extrato Detalhado</span>
-                  <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">{formatMonthYear(currentDate)}</span>
+                  <span>Extrato</span>
+                  <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">{formatMonthYear(currentDate)}</span>
                 </h3>
-                <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                <div className="space-y-2 max-h-[600px] overflow-y-auto">
                   {filteredTransactions.slice().reverse().map(t => (
-                    <div key={t.id} className="flex justify-between items-center p-3 border-b hover:bg-gray-50">
-                      <div>
-                        <p className="font-medium">{t.description}</p>
-                        <p className="text-xs text-gray-500 flex items-center gap-1">
-                           {t.date} • <User size={10}/> {t.createdBy || 'Sistema'}
+                    <div key={t.id} className="flex justify-between items-center p-3 border-b border-gray-50 hover:bg-gray-50">
+                      <div className="overflow-hidden">
+                        <p className="font-medium truncate pr-2">{t.description}</p>
+                        <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                           {t.date.split('-').reverse().join('/')} • {t.createdBy || 'Sistema'}
                         </p>
                       </div>
-                      <div className="flex items-center space-x-3">
-                        <span className={`font-bold ${t.type === 'receita' ? 'text-green-600' : 'text-red-600'}`}>
-                          {t.type === 'receita' ? '+' : '-'} R$ {Number(t.value).toFixed(2)}
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        <span className={`font-bold whitespace-nowrap ${t.type === 'receita' ? 'text-green-600' : 'text-red-600'}`}>
+                          {t.type === 'receita' ? '+' : '-'} {Number(t.value).toFixed(2)}
                         </span>
-                        <button onClick={() => removeTransaction(t.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={16}/></button>
+                        <button onClick={() => removeTransaction(t.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={16}/></button>
                       </div>
                     </div>
                   ))}
-                  {filteredTransactions.length === 0 && <p className="text-gray-500 text-center py-4">Nenhum lançamento neste mês.</p>}
+                  {filteredTransactions.length === 0 && <p className="text-gray-400 text-center py-4 text-sm">Nada aqui ainda.</p>}
                 </div>
               </div>
             </div>
@@ -472,28 +565,28 @@ export default function App() {
           {activeTab === 'goals' && (
             <div className="space-y-6 relative">
               {withdrawModal.show && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                  <div className="bg-white p-6 rounded-lg shadow-xl w-96">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
                     <h3 className="text-xl font-bold text-red-600 mb-4">Resgatar da Meta</h3>
                     <p className="text-sm text-gray-600 mb-4">Meta: <strong>{withdrawModal.goalName}</strong></p>
                     <form onSubmit={confirmWithdraw}>
                       <input type="number" step="0.01" onWheel={blockWheel} className="w-full p-2 border rounded mb-3" value={withdrawForm.amount} onChange={e => setWithdrawForm({...withdrawForm, amount: e.target.value})} placeholder="Valor (R$)" />
                       <textarea className="w-full p-2 border rounded mb-4" rows="3" placeholder="Justificativa..." value={withdrawForm.reason} onChange={e => setWithdrawForm({...withdrawForm, reason: e.target.value})}></textarea>
                       <div className="flex justify-end gap-2">
-                        <button type="button" onClick={() => setWithdrawModal({ show: false, goalId: null, goalName: '' })} className="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
-                        <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded">Confirmar</button>
+                        <button type="button" onClick={() => setWithdrawModal({ show: false, goalId: null, goalName: '' })} className="px-4 py-2 bg-gray-200 rounded text-sm">Cancelar</button>
+                        <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded text-sm">Confirmar</button>
                       </div>
                     </form>
                   </div>
                 </div>
               )}
-              <div className="bg-white p-6 rounded-xl shadow-sm">
+              <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm">
                 <h3 className="text-lg font-semibold mb-4 text-purple-700">Criar Nova Meta</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <input type="text" placeholder="Nome" className="p-2 border rounded" value={goalForm.name} onChange={e=>setGoalForm({...goalForm, name: e.target.value})} />
                   <input type="number" step="0.01" onWheel={blockWheel} placeholder="Valor Alvo" className="p-2 border rounded" value={goalForm.targetAmount} onChange={e=>setGoalForm({...goalForm, targetAmount: e.target.value})} />
                   <input type="date" className="p-2 border rounded" value={goalForm.targetDate} onChange={e=>setGoalForm({...goalForm, targetDate: e.target.value})} />
-                  <button onClick={addGoal} className="bg-purple-600 text-white p-2 rounded hover:bg-purple-700 font-bold">+ Criar Meta</button>
+                  <button onClick={addGoal} className="bg-purple-600 text-white p-2 rounded hover:bg-purple-700 font-bold">+ Criar</button>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -502,16 +595,16 @@ export default function App() {
                   const smartInfo = calculateSmartGoal(g.targetAmount, g.currentAmount, g.targetDate);
 
                   return (
-                    <div key={g.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative group">
-                      <button onClick={() => deleteGoal(g.id)} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
+                    <div key={g.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 relative group">
+                      <button onClick={() => deleteGoal(g.id)} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
                       
                       <h4 className="font-bold text-lg mb-0 text-gray-800">{g.name}</h4>
-                      <p className="text-xs text-gray-400 mb-2">Criado por: {g.createdBy}</p>
+                      <p className="text-[10px] text-gray-400 mb-2 uppercase tracking-wide">Por: {g.createdBy}</p>
 
                       <div className="bg-purple-50 p-3 rounded-lg mb-4 border border-purple-100">
                          <div className="flex items-center gap-2 mb-1">
                             <Calculator size={14} className="text-purple-600"/>
-                            <span className="text-xs font-bold text-purple-700 uppercase">Planejamento Inteligente</span>
+                            <span className="text-[10px] font-bold text-purple-700 uppercase">Planejamento</span>
                          </div>
                          <p className="text-sm text-gray-700">{smartInfo.text}</p>
                          {smartInfo.status === 'pendente' && (
@@ -520,17 +613,17 @@ export default function App() {
                       </div>
 
                       <div className="flex justify-between items-end mb-2">
-                        <span className="text-xl font-bold text-gray-700">R$ {(g.currentAmount || 0).toFixed(2)} <span className="text-xs text-gray-400 font-normal">/ {parseFloat(g.targetAmount).toFixed(2)}</span></span>
+                        <span className="text-xl font-bold text-gray-700">R$ {(g.currentAmount || 0).toFixed(2)} <span className="text-xs text-gray-400 font-normal">/ {parseFloat(g.targetAmount).toFixed(0)}</span></span>
                         <span className="text-xs font-bold text-purple-600 bg-purple-100 px-2 py-1 rounded-full">{progress.toFixed(0)}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden"><div className="bg-purple-600 h-3 rounded-full transition-all duration-500" style={{width: `${progress}%`}}></div></div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-4 overflow-hidden"><div className="bg-purple-600 h-2 rounded-full transition-all duration-500" style={{width: `${progress}%`}}></div></div>
                       
                       <div className="mt-4 pt-4 border-t border-gray-100">
                         <div className="flex gap-2 mb-2">
                             <input type="number" step="0.01" onWheel={blockWheel} placeholder="R$" className="w-1/2 p-1 border rounded text-sm" id={`input-goal-${g.id}`}/>
                             <button onClick={() => { const input = document.getElementById(`input-goal-${g.id}`); addValueToGoal(g.id, input.value); input.value = ''; }} className="w-1/2 bg-green-100 text-green-700 px-3 py-1 rounded text-sm font-medium">Depositar</button>
                         </div>
-                        <button onClick={() => setWithdrawModal({ show: true, goalId: g.id, goalName: g.name })} className="w-full bg-red-50 text-red-600 px-3 py-1 rounded text-sm font-medium border border-red-100">Resgatar (Emergência)</button>
+                        <button onClick={() => setWithdrawModal({ show: true, goalId: g.id, goalName: g.name })} className="w-full bg-red-50 text-red-600 px-3 py-1 rounded text-sm font-medium border border-red-100">Resgatar</button>
                       </div>
                     </div>
                   );
@@ -541,7 +634,7 @@ export default function App() {
 
           {activeTab === 'settings' && (
             <div className="max-w-2xl mx-auto space-y-8">
-              <div className="bg-white p-8 rounded-xl shadow-sm">
+              <div className="bg-white p-4 md:p-8 rounded-xl shadow-sm">
                 <h2 className="text-xl font-bold mb-4">Configurações de Conta</h2>
                 <div className="space-y-4">
                   <input type="password" placeholder="Senha Atual" className="w-full p-2 border rounded" value={changePasswordForm.currentPassword} onChange={e=>setChangePasswordForm({...changePasswordForm, currentPassword: e.target.value})} />
@@ -550,20 +643,23 @@ export default function App() {
                   <button onClick={changePassword} className="bg-blue-600 text-white px-4 py-2 rounded w-full">Atualizar Senha</button>
                 </div>
               </div>
-              <div className="bg-red-50 p-8 rounded-xl border border-red-200">
-                <h3 className="text-lg font-bold text-red-700 flex items-center gap-2 mb-2"><AlertTriangle size={24}/> Zona de Perigo Compartilhada</h3>
-                <p className="text-sm text-red-600 mb-4">Isso limpará TODOS os dados de TODOS os usuários.</p>
-                <button onClick={factoryReset} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 w-full font-bold">ZERAR SISTEMA COMPARTILHADO</button>
-              </div>
+              
+              {currentUser.isAdmin && (
+                <div className="bg-red-50 p-4 md:p-8 rounded-xl border border-red-200 opacity-75 hover:opacity-100 transition-opacity">
+                  <h3 className="text-lg font-bold text-red-700 flex items-center gap-2 mb-2"><AlertTriangle size={24}/> Zona de Perigo (Admin)</h3>
+                  <p className="text-sm text-red-600 mb-4">Cuidado: Apaga tudo para todos os usuários.</p>
+                  <button onClick={factoryReset} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 w-full font-bold">ZERAR SISTEMA COMPARTILHADO</button>
+                </div>
+              )}
             </div>
           )}
           
           {activeTab === 'admin' && currentUser.isAdmin && (
-            <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-sm">
+            <div className="max-w-4xl mx-auto bg-white p-4 md:p-8 rounded-xl shadow-sm">
               <h2 className="text-xl font-bold mb-6">Painel Administrativo</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
-                  <h3 className="font-semibold mb-4">Novo Usuário (Família/Equipe)</h3>
+                  <h3 className="font-semibold mb-4">Novo Usuário</h3>
                   <div className="space-y-4">
                     <input type="text" placeholder="Nome (Ex: Maria)" className="w-full p-2 border rounded" value={userManagementForm.name} onChange={(e) => setUserManagementForm({...userManagementForm, name: e.target.value})} />
                     <input type="text" placeholder="Login (Ex: maria)" className="w-full p-2 border rounded" value={userManagementForm.username} onChange={(e) => setUserManagementForm({...userManagementForm, username: e.target.value})} />
