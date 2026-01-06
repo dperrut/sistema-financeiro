@@ -354,28 +354,71 @@ export default function App() {
     );
   };
 
+  // --- Cálculos ---
+  
+  // 1. Cálculos do Mês Atual (Filtrados)
+  const monthlyIncome = filteredTransactions
+    .filter(t => t.type === 'receita')
+    .reduce((acc, curr) => acc + Number(curr.value), 0);
+
+  const monthlyExpense = filteredTransactions
+    .filter(t => t.type === 'despesa')
+    .reduce((acc, curr) => acc + Number(curr.value), 0);
+
+  const monthlyBalance = monthlyIncome - monthlyExpense;
+
+  // 2. Cálculo GLOBAL (Saldo Acumulado de todos os tempos)
+  // Pega TODAS as transações sem olhar a data
+  const totalGlobalIncome = transactions
+    .filter(t => t.type === 'receita')
+    .reduce((acc, curr) => acc + Number(curr.value), 0);
+    
+  const totalGlobalExpense = transactions
+    .filter(t => t.type === 'despesa')
+    .reduce((acc, curr) => acc + Number(curr.value), 0);
+
+  const accumulatedBalance = totalGlobalIncome - totalGlobalExpense;
+
+  // ... (função calculateSmartGoal continua igual) ...
+
   const SummaryCards = () => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500 flex justify-between items-center">
+    <div className="space-y-6 mb-6">
+      {/* NOVO: Card de Saldo Total (O "Dinheiro que Sobrou") */}
+      <div className="bg-gradient-to-r from-blue-900 to-blue-700 p-6 rounded-xl shadow-lg text-white flex justify-between items-center transform hover:scale-[1.01] transition-transform">
         <div>
-          <p className="text-gray-500 text-xs uppercase tracking-wider">Receitas</p>
-          <p className="text-xl font-bold text-green-600">R$ {totalIncome.toFixed(2)}</p>
+          <p className="text-blue-100 text-sm font-medium uppercase tracking-wider mb-1">Saldo Total Acumulado (Caixa)</p>
+          <h2 className="text-3xl font-bold">R$ {accumulatedBalance.toFixed(2)}</h2>
+          <p className="text-xs text-blue-200 mt-2">Soma de todos os meses anteriores + atual</p>
         </div>
-        <TrendingUp className="text-green-500 opacity-50" size={24} />
+        <div className="bg-white bg-opacity-20 p-3 rounded-full">
+           <DollarSign size={32} className="text-white" />
+        </div>
       </div>
-      <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500 flex justify-between items-center">
-        <div>
-          <p className="text-gray-500 text-xs uppercase tracking-wider">Despesas</p>
-          <p className="text-xl font-bold text-red-600">R$ {totalExpense.toFixed(2)}</p>
+
+      {/* Cards do Mês (Desempenho Mensal) */}
+      <h3 className="text-gray-500 font-bold text-sm uppercase tracking-wide">Desempenho de {formatMonthYear(currentDate)}</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500 flex justify-between items-center">
+          <div>
+            <p className="text-gray-500 text-xs uppercase tracking-wider">Entrou (Mês)</p>
+            <p className="text-xl font-bold text-green-600">R$ {monthlyIncome.toFixed(2)}</p>
+          </div>
+          <TrendingUp className="text-green-500 opacity-50" size={24} />
         </div>
-        <TrendingDown className="text-red-500 opacity-50" size={24} />
-      </div>
-      <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500 flex justify-between items-center">
-        <div>
-          <p className="text-gray-500 text-xs uppercase tracking-wider">Saldo</p>
-          <p className={`text-xl font-bold ${balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>R$ {balance.toFixed(2)}</p>
+        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500 flex justify-between items-center">
+          <div>
+            <p className="text-gray-500 text-xs uppercase tracking-wider">Saiu (Mês)</p>
+            <p className="text-xl font-bold text-red-600">R$ {monthlyExpense.toFixed(2)}</p>
+          </div>
+          <TrendingDown className="text-red-500 opacity-50" size={24} />
         </div>
-        <DollarSign className="text-blue-500 opacity-50" size={24} />
+        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500 flex justify-between items-center">
+          <div>
+            <p className="text-gray-500 text-xs uppercase tracking-wider">Balanço (Mês)</p>
+            <p className={`text-xl font-bold ${monthlyBalance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>R$ {monthlyBalance.toFixed(2)}</p>
+          </div>
+          <Calendar className="text-blue-500 opacity-50" size={24} />
+        </div>
       </div>
     </div>
   );
