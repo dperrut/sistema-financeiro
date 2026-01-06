@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, Target, Plus, Trash2, LogOut, Users, Lock, Eye, EyeOff, ChevronLeft, ChevronRight, Calendar, AlertTriangle, PieChart as PieIcon, Filter, Edit2, XCircle } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Target, Plus, Trash2, LogOut, Users, Lock, Eye, EyeOff, ChevronLeft, ChevronRight, Calendar, AlertTriangle, PieChart as PieIcon, Filter, Edit, XCircle, Calculator } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -20,8 +20,8 @@ export default function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [chartFilter, setChartFilter] = useState('todos');
   
-  // --- Controle de Edição (NOVO) ---
-  const [editingId, setEditingId] = useState(null); // Guarda o ID de quem estamos editando
+  // --- Controle de Edição ---
+  const [editingId, setEditingId] = useState(null);
   
   // Controle de Saque de Metas
   const [withdrawModal, setWithdrawModal] = useState({ show: false, goalId: null, goalName: '' });
@@ -59,6 +59,12 @@ export default function App() {
         localStorage.setItem('system_users', JSON.stringify(defaultUsers));
         setUsers(defaultUsers);
       }
+      
+      const savedTrans = localStorage.getItem('system_transactions');
+      const savedGoals = localStorage.getItem('system_goals');
+      if (savedTrans) setTransactions(JSON.parse(savedTrans));
+      if (savedGoals) setGoals(JSON.parse(savedGoals));
+
     } catch (error) {
       console.error("Erro ao inicializar:", error);
     }
@@ -72,12 +78,6 @@ export default function App() {
     );
     if (user) {
       setCurrentUser(user);
-      const savedTrans = localStorage.getItem('system_transactions');
-      const savedGoals = localStorage.getItem('system_goals');
-      if (savedTrans) setTransactions(JSON.parse(savedTrans));
-      else setTransactions([]);
-      if (savedGoals) setGoals(JSON.parse(savedGoals));
-      else setGoals([]);
     } else {
       alert('Usuário ou senha incorretos!');
     }
@@ -91,28 +91,22 @@ export default function App() {
 
   const handleResetRequest = (e) => {
     e.preventDefault();
-    const userFound = users.find(u => u.email === resetEmail);
-    if (userFound) {
-      alert(`[SIMULAÇÃO]\nPara: ${userFound.email}\nLink: http://recuperar-senha/user=${userFound.username}`);
-      setShowForgotPassword(false);
-      setResetEmail('');
-    } else {
-      alert('E-mail não encontrado.');
-    }
+    alert('Função de e-mail simulada.');
+    setShowForgotPassword(false);
   };
 
-  // --- Reset de Emergência ---
+  // --- Reset ---
   const factoryReset = () => {
-    if (window.confirm("Isso apagará TODOS os dados do sistema compartilhado. Confirmar?")) {
+    if (window.confirm("Isso apagará TODOS os dados. Confirmar?")) {
       localStorage.removeItem('system_transactions');
       localStorage.removeItem('system_goals');
       setTransactions([]);
       setGoals([]);
-      alert("Sistema compartilhado limpo!");
+      alert("Sistema limpo!");
     }
   };
 
-  // --- Filtros ---
+  // --- Filtros e Datas ---
   const handlePrevMonth = () => {
     const newDate = new Date(currentDate);
     newDate.setMonth(newDate.getMonth() - 1);
@@ -129,7 +123,9 @@ export default function App() {
     return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   };
 
-  const filteredTransactions = transactions.filter(t => {
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+
+  const filteredTransactions = safeTransactions.filter(t => {
     if (!t.date) return false;
     const [yearStr, monthStr] = t.date.split('-');
     const transYear = parseInt(yearStr);
@@ -148,12 +144,11 @@ export default function App() {
 
   const monthlyBalance = monthlyIncome - monthlyExpense;
 
-  // Cálculo Global (Acumulado)
-  const totalGlobalIncome = transactions
+  const totalGlobalIncome = safeTransactions
     .filter(t => t.type === 'receita')
     .reduce((acc, curr) => acc + Number(curr.value), 0);
     
-  const totalGlobalExpense = transactions
+  const totalGlobalExpense = safeTransactions
     .filter(t => t.type === 'despesa')
     .reduce((acc, curr) => acc + Number(curr.value), 0);
 
@@ -166,16 +161,15 @@ export default function App() {
     let months = (target.getFullYear() - today.getFullYear()) * 12;
     months -= today.getMonth();
     months += target.getMonth();
-    if (remaining <= 0) return { status: 'concluido', text: 'Meta atingida! 🎉', monthly: 0 };
-    if (months <= 0) return { status: 'atrasado', text: 'Prazo vencido! ⏰', monthly: remaining };
+    if (remaining <= 0) return { status: 'concluido', text: 'Meta atingida!', monthly: 0 };
+    if (months <= 0) return { status: 'atrasado', text: 'Prazo vencido!', monthly: remaining };
     const monthly = remaining / months;
     return { status: 'pendente', months, monthly, text: `Faltam ${months} meses` };
   };
 
-  // --- CRUD e Lógica de Edição ---
+  // --- CRUD e Edição ---
   const blockWheel = (e) => e.target.blur();
 
-  // Função que inicia a edição: Pega os dados da transação e joga no formulário
   const startEditing = (transaction) => {
     setEditingId(transaction.id);
     if (transaction.type === 'receita') {
@@ -184,7 +178,6 @@ export default function App() {
         description: transaction.description,
         amount: transaction.value.toFixed(2)
       });
-      // Rola a tela para cima (útil no celular)
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       setExpenseForm({
@@ -198,7 +191,6 @@ export default function App() {
     }
   };
 
-  // Função para cancelar edição e limpar formulário
   const cancelEditing = () => {
     setEditingId(null);
     setIncomeForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '' });
@@ -212,26 +204,18 @@ export default function App() {
     const numericAmount = parseFloat(sanitizedAmount);
     if (isNaN(numericAmount)) return alert("Valor inválido");
 
-    // LÓGICA DUPLA: Se tiver editingId é ATUALIZAÇÃO, senão é CRIAÇÃO
     if (editingId) {
-       // Atualizar Existente
-       const updatedTransactions = transactions.map(t => {
+       const updatedTransactions = safeTransactions.map(t => {
           if (t.id === editingId) {
-             return {
-                ...t,
-                ...form,
-                value: numericAmount,
-                // Mantemos o createdBy original ou atualizamos? Vamos manter o original por segurança
-             };
+             return { ...t, ...form, value: numericAmount };
           }
           return t;
        });
        setTransactions(updatedTransactions);
        localStorage.setItem('system_transactions', JSON.stringify(updatedTransactions));
-       alert("Lançamento atualizado com sucesso!");
-       cancelEditing(); // Limpa tudo
+       alert("Lançamento atualizado!");
+       cancelEditing();
     } else {
-       // Criar Novo
        const newTransaction = {
           id: Date.now(),
           ...form,
@@ -239,11 +223,10 @@ export default function App() {
           value: numericAmount,
           createdBy: currentUser.name
        };
-       const updatedTransactions = [...transactions, newTransaction];
+       const updatedTransactions = [...safeTransactions, newTransaction];
        setTransactions(updatedTransactions);
        localStorage.setItem('system_transactions', JSON.stringify(updatedTransactions));
        
-       // Limpar formulário após criar
        if (type === 'income') setIncomeForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '' });
        else setExpenseForm({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: 'Alimentação', paymentMethod: 'PIX' });
        alert('Lançamento adicionado!');
@@ -251,43 +234,12 @@ export default function App() {
   };
 
   const removeTransaction = (id) => {
-    if(window.confirm("Deseja apagar este lançamento?")) {
-      const updated = transactions.filter(t => t.id !== id);
+    if(window.confirm("Apagar lançamento?")) {
+      const updated = safeTransactions.filter(t => t.id !== id);
       setTransactions(updated);
       localStorage.setItem('system_transactions', JSON.stringify(updated));
-      if (editingId === id) cancelEditing(); // Se apagar o que está editando, cancela a edição
+      if (editingId === id) cancelEditing();
     }
-  };
-
-  // --- Outros CRUDs (Metas, Usuários) ---
-  const createUser = () => {
-    if (!userManagementForm.username || !userManagementForm.name || !userManagementForm.email) return alert('Preencha tudo!');
-    if (users.find(u => u.username === userManagementForm.username)) return alert('Usuário já existe!');
-    const newUser = { ...userManagementForm, password: 'mudar321', isAdmin: false, createdAt: new Date().toISOString() };
-    const updatedUsers = [...users, newUser];
-    setUsers(updatedUsers);
-    localStorage.setItem('system_users', JSON.stringify(updatedUsers));
-    setUserManagementForm({ username: '', name: '', email: '' });
-    alert('Usuário criado! Senha: mudar321');
-  };
-
-  const deleteUser = (usernameToDelete) => {
-    if (window.confirm('Excluir usuário?')) {
-      const updatedUsers = users.filter(u => u.username !== usernameToDelete);
-      setUsers(updatedUsers);
-      localStorage.setItem('system_users', JSON.stringify(updatedUsers));
-    }
-  };
-
-  const changePassword = () => {
-    if (currentUser.password !== changePasswordForm.currentPassword) return alert('Senha atual errada!');
-    if (changePasswordForm.newPassword !== changePasswordForm.confirmPassword) return alert('Novas senhas não conferem!');
-    const updatedUsers = users.map(u => u.username === currentUser.username ? { ...u, password: changePasswordForm.newPassword } : u);
-    setUsers(updatedUsers);
-    localStorage.setItem('system_users', JSON.stringify(updatedUsers));
-    setCurrentUser({ ...currentUser, password: changePasswordForm.newPassword });
-    setChangePasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    alert('Senha alterada!');
   };
 
   const addGoal = () => {
@@ -309,13 +261,13 @@ export default function App() {
 
   const addValueToGoal = (id, valueStr) => {
     const value = parseFloat(valueStr);
-    if (!value || value <= 0) return alert("Valor inválido!");
+    if (!value || value <= 0) return alert("Valor inválido");
     const updatedGoals = goals.map(g => g.id === id ? { ...g, currentAmount: (g.currentAmount || 0) + value } : g);
-    const goalName = goals.find(g => g.id === id).name;
+    const goal = goals.find(g => g.id === id);
     const newTransaction = {
       id: Date.now(),
       type: 'despesa',
-      description: `Investimento: ${goalName}`,
+      description: `Investimento: ${goal.name}`,
       amount: valueStr,
       value: value, 
       category: 'Investimento/Meta',
@@ -324,23 +276,23 @@ export default function App() {
       createdBy: currentUser.name
     };
     setGoals(updatedGoals);
-    setTransactions([...transactions, newTransaction]);
+    setTransactions([...safeTransactions, newTransaction]);
     localStorage.setItem('system_goals', JSON.stringify(updatedGoals));
-    localStorage.setItem('system_transactions', JSON.stringify([...transactions, newTransaction]));
-    alert(`R$ ${value.toFixed(2)} investidos na meta!`);
+    localStorage.setItem('system_transactions', JSON.stringify([...safeTransactions, newTransaction]));
+    alert("Investido!");
   };
 
   const confirmWithdraw = (e) => {
     e.preventDefault();
     const value = parseFloat(withdrawForm.amount);
-    if (!value || value <= 0 || !withdrawForm.reason) return alert("Verifique valor e justificativa!");
     const goal = goals.find(g => g.id === withdrawModal.goalId);
-    if (value > (goal.currentAmount || 0)) return alert("Saldo insuficiente!");
+    if (!value || value > (goal.currentAmount || 0)) return alert("Saldo insuficiente ou inválido");
+    
     const updatedGoals = goals.map(g => g.id === withdrawModal.goalId ? { ...g, currentAmount: g.currentAmount - value } : g);
     const newTransaction = {
       id: Date.now(),
       type: 'receita',
-      description: `Resgate: ${goal.name} - ${withdrawForm.reason}`,
+      description: `Resgate: ${goal.name}`,
       amount: withdrawForm.amount,
       value: value,
       category: 'Resgate de Meta',
@@ -348,15 +300,70 @@ export default function App() {
       createdBy: currentUser.name
     };
     setGoals(updatedGoals);
-    setTransactions([...transactions, newTransaction]);
+    setTransactions([...safeTransactions, newTransaction]);
     localStorage.setItem('system_goals', JSON.stringify(updatedGoals));
-    localStorage.setItem('system_transactions', JSON.stringify([...transactions, newTransaction]));
+    localStorage.setItem('system_transactions', JSON.stringify([...safeTransactions, newTransaction]));
     setWithdrawModal({ show: false, goalId: null, goalName: '' });
-    alert("Resgate realizado!");
+    alert("Resgatado!");
   };
 
-  // --- Componente de Gráfico ---
-  const ExpenseChart = () => {
+  // --- CRUD USUÁRIOS ---
+  const createUser = () => {
+    if (!userManagementForm.username) return alert('Preencha os dados');
+    const newUser = { ...userManagementForm, password: 'mudar321', isAdmin: false, createdAt: new Date().toISOString() };
+    const updated = [...users, newUser];
+    setUsers(updated);
+    localStorage.setItem('system_users', JSON.stringify(updated));
+    alert('Usuário criado!');
+  };
+
+  const deleteUser = (uname) => {
+    if (window.confirm('Excluir?')) {
+      const updated = users.filter(u => u.username !== uname);
+      setUsers(updated);
+      localStorage.setItem('system_users', JSON.stringify(updated));
+    }
+  };
+  
+  const changePassword = () => {
+     if (currentUser.password !== changePasswordForm.currentPassword) return alert('Senha errada');
+     const updated = users.map(u => u.username === currentUser.username ? { ...u, password: changePasswordForm.newPassword } : u);
+     setUsers(updated);
+     localStorage.setItem('system_users', JSON.stringify(updated));
+     setCurrentUser({...currentUser, password: changePasswordForm.newPassword});
+     alert('Senha alterada');
+  };
+
+  // --- FUNÇÕES DE RENDERIZAÇÃO ---
+  const renderSummaryCards = () => (
+    <div className="space-y-6 mb-6">
+      <div className="bg-gradient-to-r from-blue-900 to-blue-700 p-6 rounded-xl shadow-lg text-white flex justify-between items-center transform hover:scale-[1.01] transition-transform">
+        <div>
+          <p className="text-blue-100 text-sm font-medium uppercase tracking-wider mb-1">Saldo Total Acumulado (Caixa)</p>
+          <h2 className="text-3xl font-bold">R$ {accumulatedBalance.toFixed(2)}</h2>
+        </div>
+        <div className="bg-white bg-opacity-20 p-3 rounded-full"><DollarSign size={32} className="text-white" /></div>
+      </div>
+
+      <h3 className="text-gray-500 font-bold text-sm uppercase tracking-wide">Desempenho de {formatMonthYear(currentDate)}</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500 flex justify-between items-center">
+          <div><p className="text-gray-500 text-xs uppercase">Entrou</p><p className="text-xl font-bold text-green-600">R$ {monthlyIncome.toFixed(2)}</p></div>
+          <TrendingUp className="text-green-500 opacity-50" size={24} />
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500 flex justify-between items-center">
+          <div><p className="text-gray-500 text-xs uppercase">Saiu</p><p className="text-xl font-bold text-red-600">R$ {monthlyExpense.toFixed(2)}</p></div>
+          <TrendingDown className="text-red-500 opacity-50" size={24} />
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500 flex justify-between items-center">
+          <div><p className="text-gray-500 text-xs uppercase">Balanço</p><p className={`text-xl font-bold ${monthlyBalance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>R$ {monthlyBalance.toFixed(2)}</p></div>
+          <Calendar className="text-blue-500 opacity-50" size={24} />
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderExpenseChart = () => {
     const expenses = filteredTransactions.filter(t => {
        const isExpense = t.type === 'despesa';
        const matchesUser = chartFilter === 'todos' || t.createdBy === chartFilter;
@@ -374,7 +381,7 @@ export default function App() {
     const data = Object.keys(categoryTotals).map((cat, index) => ({
       name: cat,
       value: categoryTotals[cat],
-      percent: (categoryTotals[cat] / total) * 100,
+      percent: total > 0 ? (categoryTotals[cat] / total) * 100 : 0,
       color: COLORS[index % COLORS.length]
     })).sort((a, b) => b.value - a.value);
 
@@ -389,7 +396,7 @@ export default function App() {
     return (
       <div className="flex flex-col md:flex-row items-center justify-around">
         <div className="relative w-48 h-48 rounded-full shadow-lg mb-6 md:mb-0" 
-             style={{ background: `conic-gradient(${gradientParts})` }}>
+             style={{ background: `conic-gradient(${gradientParts || '#eee 0deg 360deg'})` }}>
            <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center">
              <div className="text-center">
                <p className="text-xs text-gray-500">Total ({chartFilter === 'todos' ? 'Todos' : chartFilter})</p>
@@ -415,83 +422,20 @@ export default function App() {
     );
   };
 
-  const SummaryCards = () => (
-    <div className="space-y-6 mb-6">
-      {/* Saldo Acumulado Global */}
-      <div className="bg-gradient-to-r from-blue-900 to-blue-700 p-6 rounded-xl shadow-lg text-white flex justify-between items-center transform hover:scale-[1.01] transition-transform">
-        <div>
-          <p className="text-blue-100 text-sm font-medium uppercase tracking-wider mb-1">Saldo Total Acumulado (Caixa)</p>
-          <h2 className="text-3xl font-bold">R$ {accumulatedBalance.toFixed(2)}</h2>
-          <p className="text-xs text-blue-200 mt-2">Soma de todos os meses anteriores + atual</p>
-        </div>
-        <div className="bg-white bg-opacity-20 p-3 rounded-full">
-           <DollarSign size={32} className="text-white" />
-        </div>
-      </div>
-
-      {/* Cards do Mês */}
-      <h3 className="text-gray-500 font-bold text-sm uppercase tracking-wide">Desempenho de {formatMonthYear(currentDate)}</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500 flex justify-between items-center">
-          <div>
-            <p className="text-gray-500 text-xs uppercase tracking-wider">Entrou (Mês)</p>
-            <p className="text-xl font-bold text-green-600">R$ {monthlyIncome.toFixed(2)}</p>
-          </div>
-          <TrendingUp className="text-green-500 opacity-50" size={24} />
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500 flex justify-between items-center">
-          <div>
-            <p className="text-gray-500 text-xs uppercase tracking-wider">Saiu (Mês)</p>
-            <p className="text-xl font-bold text-red-600">R$ {monthlyExpense.toFixed(2)}</p>
-          </div>
-          <TrendingDown className="text-red-500 opacity-50" size={24} />
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500 flex justify-between items-center">
-          <div>
-            <p className="text-gray-500 text-xs uppercase tracking-wider">Balanço (Mês)</p>
-            <p className={`text-xl font-bold ${monthlyBalance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>R$ {monthlyBalance.toFixed(2)}</p>
-          </div>
-          <Calendar className="text-blue-500 opacity-50" size={24} />
-        </div>
-      </div>
-    </div>
-  );
-
-  // --- Renderização Principal ---
+  // --- TELA PRINCIPAL ---
   if (!currentUser) {
     if (showForgotPassword) {
-      return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
-            <h1 className="text-2xl font-bold mb-6 text-center text-blue-600">Recuperar Senha</h1>
-            <p className="text-sm text-gray-600 mb-4 text-center">Digite seu e-mail cadastrado.</p>
-            <form onSubmit={handleResetRequest}>
-              <input type="email" placeholder="E-mail" required className="w-full p-2 border rounded mb-4" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} />
-              <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 mb-2">Enviar Link</button>
-              <button type="button" onClick={() => setShowForgotPassword(false)} className="w-full bg-gray-300 text-gray-700 p-2 rounded">Voltar</button>
-            </form>
-          </div>
-        </div>
-      );
+        return <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4"><div className="bg-white p-8 rounded shadow w-full max-w-sm"><h1 className="text-2xl font-bold mb-4">Recuperar Senha</h1><button onClick={()=>setShowForgotPassword(false)} className="w-full bg-gray-200 p-2 rounded">Voltar</button></div></div>;
     }
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
           <h1 className="text-2xl font-bold mb-6 text-center text-blue-600">Minhas Finanças</h1>
           <form onSubmit={handleLogin}>
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Usuário</label>
-              <input type="text" className="w-full p-2 border rounded" value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })} />
-            </div>
-            <div className="mb-6 relative">
-              <label className="block text-gray-700 mb-2">Senha</label>
-              <div className="relative">
-                <input type={showPassword ? "text" : "password"} className="w-full p-2 border rounded pr-10" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} />
+            <input type="text" placeholder="Usuário" className="w-full p-2 border rounded mb-4" value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })} />
+            <div className="relative mb-6">
+                <input type={showPassword ? "text" : "password"} placeholder="Senha" className="w-full p-2 border rounded pr-10" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} />
                 <button type="button" className="absolute right-2 top-2 text-gray-500" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
-              </div>
-              <div className="text-right mt-2">
-                <button type="button" onClick={() => setShowForgotPassword(true)} className="text-sm text-blue-600 hover:underline">Esqueci minha senha</button>
-              </div>
             </div>
             <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Entrar</button>
           </form>
@@ -532,10 +476,7 @@ export default function App() {
             {activeTab === 'settings' && 'Segurança e Configurações'}
             {activeTab === 'admin' && 'Administração do Sistema'}
           </h2>
-          <h2 className="text-lg font-bold text-gray-800 md:hidden flex items-center gap-2">
-             Finanças App
-          </h2>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4 ml-auto">
             <span className="text-gray-600 text-sm hidden md:inline">Olá, <strong>{currentUser.name}</strong></span>
             <button onClick={handleLogout} className="md:hidden text-red-500"><LogOut size={20}/></button>
           </div>
@@ -555,7 +496,7 @@ export default function App() {
         <div className="flex-1 overflow-auto p-4 md:p-8">
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
-              <SummaryCards />
+              {renderSummaryCards()}
               <div className="bg-white p-6 rounded-xl shadow-sm">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                   <h3 className="text-lg font-bold text-gray-700 flex items-center gap-2">
@@ -563,11 +504,7 @@ export default function App() {
                   </h3>
                   <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
                     <Filter size={16} className="text-gray-500 ml-2"/>
-                    <select 
-                      className="bg-transparent text-sm font-medium text-gray-700 p-1 focus:outline-none cursor-pointer"
-                      value={chartFilter}
-                      onChange={(e) => setChartFilter(e.target.value)}
-                    >
+                    <select className="bg-transparent text-sm font-medium text-gray-700 p-1 focus:outline-none cursor-pointer" value={chartFilter} onChange={(e) => setChartFilter(e.target.value)}>
                       <option value="todos">Todas as Despesas (Família)</option>
                       {users.map(u => (
                         <option key={u.username} value={u.name}>{u.name}</option>
@@ -575,7 +512,7 @@ export default function App() {
                     </select>
                   </div>
                 </div>
-                <ExpenseChart />
+                {renderExpenseChart()}
               </div>
             </div>
           )}
@@ -583,9 +520,8 @@ export default function App() {
           {activeTab === 'transactions' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-6">
-                <div className="hidden md:block"><SummaryCards /></div>
+                <div className="hidden md:block">{renderSummaryCards()}</div>
                 
-                {/* FORMULÁRIO DE RECEITA (Se tiver editando Despesa, esconde este, ou bloqueia) */}
                 <div className={`bg-white p-4 md:p-6 rounded-xl shadow-sm border-l-4 border-green-500 ${editingId && expenseForm.description ? 'opacity-50 pointer-events-none' : ''}`}>
                   <h3 className="text-lg font-semibold mb-4 text-green-600 flex items-center justify-between">
                      <span className="flex items-center"><Plus size={20} className="mr-2"/> Receita</span>
@@ -607,7 +543,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* FORMULÁRIO DE DESPESA */}
                 <div className={`bg-white p-4 md:p-6 rounded-xl shadow-sm border-l-4 border-red-500 ${editingId && incomeForm.description ? 'opacity-50 pointer-events-none' : ''}`}>
                   <h3 className="text-lg font-semibold mb-4 text-red-600 flex items-center justify-between">
                      <span className="flex items-center"><TrendingDown size={20} className="mr-2"/> Despesa</span>
@@ -632,7 +567,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* LISTA DE EXTRATO */}
               <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm h-fit">
                 <h3 className="text-lg font-semibold mb-4 flex justify-between items-center">
                   <span>Extrato</span>
@@ -652,8 +586,7 @@ export default function App() {
                           {t.type === 'receita' ? '+' : '-'} {Number(t.value).toFixed(2)}
                         </span>
                         
-                        {/* BOTÕES DE AÇÃO: EDITAR E EXCLUIR */}
-                        <button onClick={() => startEditing(t)} className="text-blue-300 hover:text-blue-600" title="Editar"><Edit2 size={16}/></button>
+                        <button onClick={() => startEditing(t)} className="text-blue-300 hover:text-blue-600" title="Editar"><Edit size={16}/></button>
                         <button onClick={() => removeTransaction(t.id)} className="text-gray-300 hover:text-red-500" title="Excluir"><Trash2 size={16}/></button>
                       </div>
                     </div>
