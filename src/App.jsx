@@ -3,7 +3,8 @@ import {
   DollarSign, TrendingUp, TrendingDown, Target, Plus, Trash2, LogOut, 
   Users, Lock, Eye, EyeOff, ChevronLeft, ChevronRight, Calendar, 
   AlertTriangle, PieChart as PieIcon, Filter, Edit, XCircle, Calculator, 
-  Tag, Wallet, Key, UserPlus, List, CheckCircle, Briefcase, Landmark 
+  Tag, Wallet, Key, UserPlus, List, CheckCircle, Briefcase, Landmark,
+  Download, Upload, CalendarClock 
 } from 'lucide-react';
 
 export default function App() {
@@ -27,6 +28,10 @@ export default function App() {
   const [investments, setInvestments] = useState([]);
   const [users, setUsers] = useState([]);
   
+  // --- Estado de Despesas Fixas (NOVO) ---
+  const [fixedExpenses, setFixedExpenses] = useState([]); 
+  const [showFixedPanel, setShowFixedPanel] = useState(false);
+
   // Categorias
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [incomeCategories, setIncomeCategories] = useState([]);
@@ -44,25 +49,79 @@ export default function App() {
   const [withdrawModal, setWithdrawModal] = useState({ show: false, type: '', id: null, name: '' });
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', reason: '' });
 
+  // --- Helpers de Data e Transações (Movido para cima para o Robô usar) ---
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  const formatMonthYear = (date) => date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
   // ==================================================================================
-  // 2. FORMULÁRIOS
+  // 2. ROBÔ DE AUTOMAÇÃO (Lógica Automática)
+  // ==================================================================================
+  useEffect(() => {
+    if (fixedExpenses.length === 0) return;
+
+    const autoTransactions = [];
+    let hasUpdates = false;
+
+    fixedExpenses.forEach(fixa => {
+        // 1. Verifica se está ATIVA
+        if (!fixa.active) return;
+
+        // 2. Verifica se já existe um lançamento deste item NESTE MÊS/ANO
+        const alreadyExists = safeTransactions.some(t => {
+            const [y, m] = t.date.split('-').map(Number);
+            // Verifica mês, ano e se a descrição contém o nome da fixa
+            return (m - 1) === currentDate.getMonth() && 
+                   y === currentDate.getFullYear() &&
+                   t.description.includes(fixa.description) &&
+                   t.paymentMethod === 'Automático';
+        });
+
+        // 3. Se não existe, cria o lançamento
+        if (!alreadyExists) {
+            hasUpdates = true;
+            // Cria a data no mês/ano atual, preservando o dia escolhido
+            const d = new Date(currentDate.getFullYear(), currentDate.getMonth(), parseInt(fixa.day));
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            
+            autoTransactions.push({
+                id: Date.now() + Math.random(), // ID único
+                type: 'despesa',
+                description: `${fixa.description} (Auto)`,
+                amount: fixa.amount,
+                value: parseFloat(fixa.amount),
+                category: fixa.category,
+                date: dateStr,
+                createdBy: 'Robô',
+                paymentMethod: 'Automático'
+            });
+        }
+    });
+
+    // Se o robô criou algo novo, salva no banco
+    if (hasUpdates) {
+        const updated = [...safeTransactions, ...autoTransactions];
+        setTransactions(updated);
+        localStorage.setItem('system_transactions', JSON.stringify(updated));
+    }
+  }, [currentDate, fixedExpenses, safeTransactions]);
+
+  // ==================================================================================
+  // 3. FORMULÁRIOS
   // ==================================================================================
   
   const [userForm, setUserForm] = useState({ id: null, name: '', username: '', email: '', role: 'user' });
   const [changePasswordForm, setChangePasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   
   const [incomeForm, setIncomeForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '' });
-  
   const [expenseForm, setExpenseForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '', paymentMethod: 'Cartão de Crédito', installments: '1' });
 
   const [goalForm, setGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', description: '' });
   const [investmentForm, setInvestmentForm] = useState({ name: '', type: 'Renda Fixa', currentAmount: '' });
 
-  // Cores
   const COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1', '#84CC16', '#14B8A6'];
 
   // ==================================================================================
-  // 3. INICIALIZAÇÃO DO SISTEMA
+  // 4. INICIALIZAÇÃO DO SISTEMA
   // ==================================================================================
   useEffect(() => {
     initializeSystem();
@@ -89,6 +148,10 @@ export default function App() {
 
       const savedInvestments = localStorage.getItem('system_investments');
       if (savedInvestments) setInvestments(JSON.parse(savedInvestments));
+
+      // NOVO: Carregar Despesas Fixas
+      const savedFixed = localStorage.getItem('system_fixed_expenses');
+      if (savedFixed) setFixedExpenses(JSON.parse(savedFixed));
 
       // 3. Carregar Categorias
       const savedExpCats = localStorage.getItem('system_categories');
@@ -119,7 +182,7 @@ export default function App() {
   };
 
   // ==================================================================================
-  // 4. LÓGICA DE NEGÓCIO (CRUDs)
+  // 5. LÓGICA DE NEGÓCIO (CRUDs)
   // ==================================================================================
 
   // --- Login / Logout ---
@@ -196,10 +259,7 @@ export default function App() {
   // --- Cálculos ---
   const handlePrevMonth = () => { const d = new Date(currentDate); d.setMonth(d.getMonth() - 1); setCurrentDate(d); };
   const handleNextMonth = () => { const d = new Date(currentDate); d.setMonth(d.getMonth() + 1); setCurrentDate(d); };
-  const formatMonthYear = (date) => date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
-  const safeTransactions = Array.isArray(transactions) ? transactions : [];
-  
   // Filtro de Data (Mês Atual)
   const filteredTransactions = safeTransactions.filter(t => {
     if (!t.date) return false;
@@ -207,31 +267,105 @@ export default function App() {
     return (parseInt(monthStr) - 1) === currentDate.getMonth() && parseInt(yearStr) === currentDate.getFullYear();
   });
 
-  // 1. CÁLCULO DO QUE ENTROU (Ignora Resgates, conta apenas Salário/Extras)
+  // 1. CÁLCULO DO QUE ENTROU
   const monthlyIncome = filteredTransactions
     .filter(t => t.type === 'receita' && (!t.category || !t.category.includes('Resgate'))) 
     .reduce((acc, curr) => acc + Number(curr.value), 0);
 
-  // 2. CÁLCULO DO QUE SAIU (Ignora Investimentos, conta apenas Gastos Reais)
-  // AQUI ESTÁ A CORREÇÃO QUE VOCÊ PEDIU:
+  // 2. CÁLCULO DO QUE SAIU
   const monthlyExpense = filteredTransactions
     .filter(t => t.type === 'despesa' && (!t.category || !t.category.includes('Investimento'))) 
     .reduce((acc, curr) => acc + Number(curr.value), 0);
 
   const monthlyBalance = monthlyIncome - monthlyExpense;
 
-  // 3. SALDO ACUMULADO DO CAIXA (Aqui consideramos TUDO: Entradas, Saídas, Investimentos e Resgates)
-  // Porque o dinheiro fisicamente saiu ou entrou na conta corrente.
+  // 3. SALDO ACUMULADO DO CAIXA
   const todayStr = new Date().toISOString().split('T')[0];
   const pastTransactions = safeTransactions.filter(t => t.date <= todayStr);
   
   const accumulatedBalance = pastTransactions.filter(t => t.type === 'receita').reduce((a,c)=>a+Number(c.value),0) - 
                              pastTransactions.filter(t => t.type === 'despesa').reduce((a,c)=>a+Number(c.value),0);
 
-  // 4. PATRIMÔNIO TOTAL (Caixa + Metas + Investimentos)
+  // 4. PATRIMÔNIO TOTAL
   const totalGoals = goals.reduce((acc, curr) => acc + (Number(curr.currentAmount) || 0), 0);
   const totalInvestments = investments.reduce((acc, curr) => acc + (Number(curr.currentAmount) || 0), 0);
   const totalPatrimony = accumulatedBalance + totalGoals + totalInvestments;
+
+  // --- Backup e Restauração ---
+  const exportData = () => {
+    const data = {
+        users, transactions, goals, investments, fixedExpenses,
+        expenseCategories, incomeCategories
+    };
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backup_financas_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+  };
+
+  const importData = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data.users || !data.transactions) throw new Error('Arquivo inválido ou antigo.');
+            
+            if(window.confirm('ATENÇÃO: Isso substituirá TODOS os dados atuais pelos do arquivo. Continuar?')) {
+                localStorage.setItem('system_users', JSON.stringify(data.users));
+                localStorage.setItem('system_transactions', JSON.stringify(data.transactions));
+                localStorage.setItem('system_goals', JSON.stringify(data.goals || []));
+                localStorage.setItem('system_investments', JSON.stringify(data.investments || []));
+                localStorage.setItem('system_fixed_expenses', JSON.stringify(data.fixedExpenses || []));
+                localStorage.setItem('system_categories', JSON.stringify(data.expenseCategories));
+                localStorage.setItem('system_income_categories', JSON.stringify(data.incomeCategories));
+                alert('Dados restaurados com sucesso! A página será recarregada.');
+                window.location.reload();
+            }
+        } catch (err) {
+            alert('Erro ao ler arquivo: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+  };
+
+  // --- CRUD Despesas Fixas (Automáticas) ---
+  const saveFixedExpense = (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      
+      const newFixa = {
+          id: Date.now(),
+          description: fd.get('desc'),
+          amount: fd.get('amount'),
+          day: fd.get('day'),
+          category: fd.get('cat'),
+          active: true // Nasce ativado por padrão
+      };
+      
+      const updated = [...fixedExpenses, newFixa];
+      setFixedExpenses(updated);
+      localStorage.setItem('system_fixed_expenses', JSON.stringify(updated));
+      e.target.reset(); // Limpa o formulário
+      alert("Conta Fixa configurada! Ela será lançada automaticamente todo mês.");
+  };
+
+  const toggleFixedActive = (id) => {
+      const updated = fixedExpenses.map(f => f.id === id ? { ...f, active: !f.active } : f);
+      setFixedExpenses(updated);
+      localStorage.setItem('system_fixed_expenses', JSON.stringify(updated));
+  };
+
+  const deleteFixedExpense = (id) => {
+      if(window.confirm("Excluir permanentemente esta configuração?")) {
+          const updated = fixedExpenses.filter(f => f.id !== id);
+          setFixedExpenses(updated);
+          localStorage.setItem('system_fixed_expenses', JSON.stringify(updated));
+      }
+  };
 
   // --- Categorias ---
   const addExpenseCategory = () => { if (!newExpenseCat || expenseCategories.includes(newExpenseCat)) return; const updated = [...expenseCategories, newExpenseCat]; setExpenseCategories(updated); localStorage.setItem('system_categories', JSON.stringify(updated)); setNewExpenseCat(''); };
@@ -411,7 +545,7 @@ export default function App() {
   };
 
   // ==================================================================================
-  // 5. COMPONENTES VISUAIS (RENDER)
+  // 6. COMPONENTES VISUAIS (RENDER)
   // ==================================================================================
 
   const renderSummaryCards = () => (
@@ -455,7 +589,13 @@ export default function App() {
   );
 
   const renderExpenseChart = () => {
-    const expenses = filteredTransactions.filter(t => t.type === 'despesa' && (chartFilter === 'todos' || t.createdBy === chartFilter));
+    // CORREÇÃO: O gráfico agora ignora categorias que contenham "Investimento"
+    const expenses = filteredTransactions.filter(t => 
+        t.type === 'despesa' && 
+        (!t.category || !t.category.includes('Investimento')) && 
+        (chartFilter === 'todos' || t.createdBy === chartFilter)
+    );
+
     if(!expenses.length) return <div className="text-center text-gray-400 py-10">Sem despesas para exibir neste filtro.</div>;
     const totals = expenses.reduce((acc,curr) => { acc[curr.category] = (acc[curr.category]||0)+curr.value; return acc; }, {});
     const total = Object.values(totals).reduce((a,b)=>a+b,0);
@@ -478,6 +618,78 @@ export default function App() {
           ))}
         </div>
       </div>
+    );
+  };
+
+  // --- NOVO: Gráfico de Evolução (Últimos 6 meses) ---
+  const renderHistoryChart = () => {
+    // 1. Gerar os últimos 6 meses
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        months.push({ 
+            month: d.getMonth(), 
+            year: d.getFullYear(), 
+            label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.','') 
+        });
+    }
+
+    // 2. Calcular totais para cada mês
+    const data = months.map(m => {
+        const transInMonth = safeTransactions.filter(t => {
+            if(!t.date) return false;
+            const [y, mo] = t.date.split('-').map(Number);
+            return (mo - 1) === m.month && y === m.year;
+        });
+
+        // Aplicando as mesmas regras de filtro (Ignorar Resgates e Investimentos)
+        const inc = transInMonth
+            .filter(t => t.type === 'receita' && (!t.category || !t.category.includes('Resgate')))
+            .reduce((a, c) => a + Number(c.value), 0);
+            
+        const exp = transInMonth
+            .filter(t => t.type === 'despesa' && (!t.category || !t.category.includes('Investimento')))
+            .reduce((a, c) => a + Number(c.value), 0);
+
+        return { ...m, income: inc, expense: exp };
+    });
+
+    // 3. Encontrar o valor máximo para escalar as barras
+    const maxVal = Math.max(...data.map(d => Math.max(d.income, d.expense))) || 1;
+
+    return (
+        <div className="mt-8 pt-6 border-t border-gray-100">
+            <h3 className="text-lg font-bold text-gray-700 mb-6 flex items-center gap-2">
+                <TrendingUp size={20} className="text-blue-500"/> Evolução Semestral
+            </h3>
+            
+            <div className="flex justify-between items-end h-40 gap-2 md:gap-4 px-2">
+                {data.map((d, idx) => (
+                    <div key={idx} className="flex-1 flex flex-col justify-end items-center gap-1 group relative">
+                        {/* Tooltip (aparece ao passar o mouse) */}
+                        <div className="absolute bottom-full mb-2 hidden group-hover:flex flex-col bg-gray-800 text-white text-xs p-2 rounded shadow-lg z-10 whitespace-nowrap">
+                            <span className="text-green-300">Ent: R$ {d.income.toFixed(0)}</span>
+                            <span className="text-red-300">Sai: R$ {d.expense.toFixed(0)}</span>
+                        </div>
+
+                        <div className="w-full flex justify-center gap-1 items-end h-full">
+                            {/* Barra Verde (Receita) */}
+                            <div 
+                                style={{ height: `${(d.income / maxVal) * 100}%` }} 
+                                className="w-3 md:w-6 bg-green-400 rounded-t-sm opacity-80 hover:opacity-100 transition-all"
+                            ></div>
+                            {/* Barra Vermelha (Despesa) */}
+                            <div 
+                                style={{ height: `${(d.expense / maxVal) * 100}%` }} 
+                                className="w-3 md:w-6 bg-red-400 rounded-t-sm opacity-80 hover:opacity-100 transition-all"
+                            ></div>
+                        </div>
+                        <span className="text-[10px] md:text-xs font-bold text-gray-500 uppercase mt-1">{d.label}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
   };
 
@@ -607,6 +819,8 @@ export default function App() {
                            </div>
                        </div>
                        {renderExpenseChart()}
+                       {/* Adicionando o Gráfico de Evolução Aqui */}
+                       {renderHistoryChart()}
                    </div>
                </div>
            )}
@@ -615,8 +829,59 @@ export default function App() {
            {activeTab === 'transactions' && (
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 max-w-6xl mx-auto">
                <div className="space-y-6">
-                 {/* No celular, escondemos o resumo grande para focar na lista, ou mostramos simplificado. Aqui mantive oculto no desktop-only layout anterior, mas vamos liberar geral ou ajustar. */}
                  <div className="block">{renderSummaryCards()}</div>
+                 
+                 {/* BOTÃO PARA GERENCIAR FIXAS */}
+                 <button onClick={() => setShowFixedPanel(!showFixedPanel)} className="w-full py-3 bg-indigo-50 text-indigo-700 rounded-xl font-bold border border-indigo-200 hover:bg-indigo-100 flex items-center justify-center gap-2 transition-all">
+                    {showFixedPanel ? <XCircle size={20}/> : <CalendarClock size={20}/>}
+                    {showFixedPanel ? 'Fechar Gestão de Fixas' : 'Gerenciar Contas Fixas Automáticas'}
+                 </button>
+
+                 {/* PAINEL DE CONTAS FIXAS (Aparece só se clicar no botão acima) */}
+                 {showFixedPanel && (
+                    <div className="bg-white p-4 rounded-2xl shadow-lg border-2 border-indigo-100 animate-fadeIn">
+                        <h4 className="font-bold text-indigo-800 mb-4 border-b pb-2">Configurar Automação</h4>
+                        
+                        {/* Formulário Rápido */}
+                        <form onSubmit={saveFixedExpense} className="grid grid-cols-2 gap-2 mb-6">
+                             <input name="desc" className="col-span-2 border p-2 rounded text-sm" placeholder="Nome (Ex: Aluguel)" required />
+                             <input name="amount" type="number" step="0.01" className="border p-2 rounded text-sm" placeholder="R$" required />
+                             <select name="day" className="border p-2 rounded text-sm bg-white" required>
+                                 <option value="">Dia</option>{[1,5,10,15,20,25,30].map(d=><option key={d} value={d}>{d}</option>)}
+                             </select>
+                             <select name="cat" className="col-span-2 border p-2 rounded text-sm bg-white" required>
+                                 {expenseCategories.map(c=><option key={c} value={c}>{c}</option>)}
+                             </select>
+                             <button type="submit" className="col-span-2 bg-indigo-600 text-white py-2 rounded font-bold text-sm hover:bg-indigo-700">Adicionar à Automação</button>
+                        </form>
+
+                        {/* Lista com Checkbox (Interruptor) */}
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {fixedExpenses.map(f => (
+                                <div key={f.id} className={`flex items-center justify-between p-3 rounded-lg border ${f.active ? 'bg-white border-green-200' : 'bg-gray-50 border-gray-200 opacity-70'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={f.active} 
+                                            onChange={() => toggleFixedActive(f.id)}
+                                            className="w-5 h-5 cursor-pointer accent-green-600"
+                                            title="Ativar/Desativar cobrança automática"
+                                        />
+                                        <div>
+                                            <p className={`font-bold text-sm ${f.active ? 'text-gray-800' : 'text-gray-400 decoration-slate-400'}`}>{f.description}</p>
+                                            <p className="text-[10px] text-gray-500">Dia {f.day} • {f.category}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-bold text-sm">R$ {Number(f.amount).toFixed(0)}</span>
+                                        <button onClick={()=>deleteFixedExpense(f.id)} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button>
+                                    </div>
+                                </div>
+                            ))}
+                            {fixedExpenses.length === 0 && <p className="text-center text-xs text-gray-400">Nenhuma conta fixa.</p>}
+                        </div>
+                    </div>
+                 )}
                  
                  {/* Form Receita */}
                  <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border-l-4 border-green-500">
@@ -675,12 +940,17 @@ export default function App() {
                         const isIncome = t.type === 'receita';
                         let valueColor = isIncome ? 'text-green-600' : 'text-red-600';
                         if (isTransfer) valueColor = 'text-indigo-600'; 
+                        
+                        // Destaque visual se for automático
+                        const isAuto = t.description.includes('(Auto)');
 
                         return (
                             <div key={t.id} className={`flex justify-between items-center border-b border-gray-50 p-3 rounded-lg transition-colors hover:bg-gray-50 ${editingId === t.id ? 'bg-orange-50 border-orange-200 border' : ''}`}>
                                 <div className="overflow-hidden">
-                                <p className="font-bold truncate pr-2 text-gray-800 text-sm md:text-base">
-                                    {t.description} {editingId === t.id && <span className="text-orange-500 text-[10px] font-bold">(Editando...)</span>}
+                                <p className="font-bold truncate pr-2 text-gray-800 text-sm md:text-base flex items-center gap-1">
+                                    {t.description} 
+                                    {isAuto && <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1 rounded border border-indigo-200">AUTO</span>}
+                                    {editingId === t.id && <span className="text-orange-500 text-[10px] font-bold">(Editando...)</span>}
                                 </p>
                                 <p className="text-[10px] md:text-xs text-gray-500 flex items-center gap-1 mt-1">
                                     {t.date.split('-').reverse().join('/')} • 
@@ -834,6 +1104,9 @@ export default function App() {
                     <button onClick={()=>setConfigSubTab('categories')} className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all whitespace-nowrap ${configSubTab==='categories' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
                         <List size={18}/> Categorias
                     </button>
+                    <button onClick={()=>setConfigSubTab('data_backup')} className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all whitespace-nowrap ${configSubTab==='data_backup' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
+                        <Download size={18}/> Dados e Backup
+                    </button>
                     {(currentUser.role === 'admin' || configSubTab === 'add_user') && (
                         <button onClick={() => { setUserForm({ id: null, name: '', username: '', email: '', role: 'user' }); setConfigSubTab('add_user'); }} className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all whitespace-nowrap ${configSubTab==='add_user' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'bg-white text-gray-500 hover:bg-gray-50'} ${currentUser.role !== 'admin' && configSubTab !== 'add_user' ? 'hidden' : ''}`}>
                             <UserPlus size={18}/> {userForm.id ? 'Editando' : 'Novo Usuário'}
@@ -909,7 +1182,29 @@ export default function App() {
                     </div>
                  )}
 
-                 {/* 3. CADASTRO / EDIÇÃO */}
+                 {/* 3. DADOS E BACKUP */}
+                 {configSubTab === 'data_backup' && (
+                    <div className="space-y-6">
+                        <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
+                            <h3 className="font-bold mb-2 flex items-center gap-2 text-blue-700"><Download size={20}/> Backup (Baixar Dados)</h3>
+                            <p className="text-sm text-gray-600 mb-4">Gera um arquivo seguro contendo todos os seus lançamentos, metas, investimentos e usuários. Salve este arquivo para não perder nada!</p>
+                            <button onClick={exportData} className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-200">
+                                <Download size={20}/> Baixar Backup Agora
+                            </button>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-orange-500">
+                            <h3 className="font-bold mb-2 flex items-center gap-2 text-orange-700"><Upload size={20}/> Restaurar Dados</h3>
+                            <p className="text-sm text-gray-600 mb-4">Carrega um arquivo de backup que você tenha salvo anteriormente. <strong>Cuidado:</strong> Isso substituirá os dados atuais.</p>
+                            <label className="w-full md:w-auto cursor-pointer bg-orange-100 hover:bg-orange-200 text-orange-700 px-6 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 border border-orange-200">
+                                <Upload size={20}/> Selecionar Arquivo para Restaurar
+                                <input type="file" accept=".json" onChange={importData} className="hidden" />
+                            </label>
+                        </div>
+                    </div>
+                 )}
+
+                 {/* 4. CADASTRO / EDIÇÃO */}
                  {configSubTab === 'add_user' && (
                     <div className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-100">
                         <h3 className="text-xl font-bold text-gray-800 mb-6 border-b pb-4 flex items-center gap-2">
