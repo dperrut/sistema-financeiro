@@ -3,7 +3,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, Target, Trash2, LogOut, 
   Users, Lock, Eye, EyeOff, ChevronLeft, ChevronRight, Calendar, 
   Edit, XCircle, Briefcase, Upload, Home, List, AlertTriangle, PieChart as PieIcon,
-  ArrowLeft, Key, LogIn
+  ArrowLeft, LogIn
 } from 'lucide-react';
 
 // --- IMPORTAÇÕES DE GRÁFICOS (Recharts) ---
@@ -42,7 +42,6 @@ export default function App() {
   
   // Login, Cadastro e Reset
   const [authMode, setAuthMode] = useState('login'); 
-  // ADICIONADO: Campo 'pin' no formulário de login/registro
   const [loginForm, setLoginForm] = useState({ email: '', password: '', name: '', pin: '' });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -51,7 +50,7 @@ export default function App() {
 
   // Dados do Sistema
   const [familyName, setFamilyName] = useState('Minha Família');
-  const [familyPin, setFamilyPin] = useState(''); // NOVO: Guarda o PIN da família atual
+  const [familyPin, setFamilyPin] = useState(''); // Estado do PIN
   const [transactions, setTransactions] = useState([]);
   const [goals, setGoals] = useState([]);
   const [investments, setInvestments] = useState([]);
@@ -76,11 +75,9 @@ export default function App() {
   const [investmentForm, setInvestmentForm] = useState({ name: '', type: 'Renda Fixa', currentAmount: '' });
   const [changePasswordForm, setChangePasswordForm] = useState({ newPassword: '', confirmPassword: '' });
   
-  // Novos Estados para Categorias
+  // Novos Estados para Categorias e Join
   const [newExpenseCat, setNewExpenseCat] = useState('');
   const [newIncomeCat, setNewIncomeCat] = useState('');
-
-  // NOVO: Estado para entrar em outra família
   const [joinFamilyForm, setJoinFamilyForm] = useState({ familyId: '', pin: '' });
 
   // Helpers
@@ -127,7 +124,7 @@ export default function App() {
           const data = snapshot.val();
           if (data) {
               setFamilyName(data.name || 'Minha Família');
-              setFamilyPin(data.pin || '0000'); // Carrega o PIN
+              setFamilyPin(data.pin || '0000'); // Lê o PIN do banco
 
               if (data.transactions) setTransactions(Object.values(data.transactions)); else setTransactions([]);
               if (data.goals) setGoals(Object.values(data.goals)); else setGoals([]);
@@ -158,7 +155,6 @@ export default function App() {
           if (authMode === 'login') {
               await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
           } else if (authMode === 'register') {
-              // Validação do PIN no registro
               if (!loginForm.pin || loginForm.pin.length < 4) return alert("Crie um PIN de acesso com pelo menos 4 dígitos.");
 
               const userCred = await createUserWithEmailAndPassword(auth, loginForm.email, loginForm.password);
@@ -169,11 +165,10 @@ export default function App() {
               let nomeFamilia = "Família " + loginForm.name.split(' ')[0];
               if (loginForm.name.toLowerCase().includes('figueiredo')) nomeFamilia = "Família Figueiredo";
 
-              // Salva o PIN na criação da família
               await set(newFamilyRef, { 
                   id: familyId, 
                   name: nomeFamilia, 
-                  pin: loginForm.pin, // <--- SALVA O PIN
+                  pin: loginForm.pin,
                   createdBy: uid, 
                   members: { [uid]: loginForm.name }, 
                   expenseCategories, 
@@ -198,58 +193,36 @@ export default function App() {
       try { await updatePassword(auth.currentUser, changePasswordForm.newPassword); alert("Senha alterada!"); handleLogout(); } catch (error) { alert("Erro: " + error.message); }
   };
 
+  // --- FUNÇÃO PARA EDITAR O PIN (COM O LÁPIS) ---
   const handleEditPin = async () => {
       const newPin = prompt("Digite o novo PIN de acesso da Família (Mínimo 4 dígitos):");
       if (!newPin || newPin.length < 4) return alert("PIN inválido. Tente novamente.");
-      
       try {
           await update(ref(db, `families/${currentUser.familyId}`), { pin: newPin });
-          setFamilyPin(newPin); // Atualiza na tela na hora
+          setFamilyPin(newPin);
           alert("PIN alterado com sucesso!");
-      } catch (error) {
-          alert("Erro ao salvar PIN: " + error.message);
-      }
+      } catch (error) { alert("Erro ao salvar PIN: " + error.message); }
   };
 
-  // --- LÓGICA PARA ENTRAR EM OUTRA FAMÍLIA ---
   const handleJoinFamily = async () => {
       if (!joinFamilyForm.familyId || !joinFamilyForm.pin) return alert("Preencha o ID e o PIN.");
-      
       const targetFamilyId = joinFamilyForm.familyId.trim();
       const inputPin = joinFamilyForm.pin.trim();
 
       try {
-          // 1. Busca a família no banco
           const familySnapshot = await get(ref(db, `families/${targetFamilyId}`));
-          
-          if (!familySnapshot.exists()) {
-              return alert("Família não encontrada. Verifique o ID.");
-          }
-
+          if (!familySnapshot.exists()) return alert("Família não encontrada. Verifique o ID.");
           const familyData = familySnapshot.val();
+          if (String(familyData.pin) !== String(inputPin)) return alert("PIN incorreto! Acesso negado.");
 
-          // 2. Verifica o PIN
-          if (String(familyData.pin) !== String(inputPin)) {
-              return alert("PIN incorreto! Acesso negado.");
-          }
-
-          // 3. Se passou, atualiza o usuário
           if (window.confirm(`Entrar na "${familyData.name}"?`)) {
               const uid = currentUser.uid;
-              
-              // Atualiza o perfil do usuário
               await update(ref(db, `users/${uid}`), { familyId: targetFamilyId });
-              
-              // Adiciona o usuário na lista de membros da família
               await update(ref(db, `families/${targetFamilyId}/members`), { [uid]: currentUser.name });
-
               alert("Sucesso! Você agora faz parte desta família.");
-              window.location.reload(); // Recarrega para pegar os novos dados
+              window.location.reload();
           }
-
-      } catch (error) {
-          alert("Erro ao entrar na família: " + error.message);
-      }
+      } catch (error) { alert("Erro ao entrar na família: " + error.message); }
   };
 
   const resetAllData = async () => {
@@ -264,7 +237,6 @@ export default function App() {
       } catch (error) { alert("Erro: " + error.message); }
   }
 
-  // --- Gerenciamento de Categorias ---
   const handleAddCategory = (type, value) => {
       if (!value) return;
       const isExpense = type === 'expense';
@@ -549,7 +521,6 @@ export default function App() {
                 {authMode === 'register' && (
                     <>
                         <div className="mb-4"><label className="block text-xs font-bold text-gray-700 mb-1">Nome</label><input className="w-full p-3 border rounded-lg bg-gray-50" placeholder="Ex: Diego" value={loginForm.name} onChange={e=>setLoginForm({...loginForm, name:e.target.value})} required/></div>
-                        {/* INPUT DE PIN NO REGISTRO */}
                         <div className="mb-4">
                             <label className="block text-xs font-bold text-gray-700 mb-1">Crie um PIN da Família (Acesso)</label>
                             <input className="w-full p-3 border rounded-lg bg-gray-50 text-center tracking-widest font-mono text-lg" placeholder="0000" maxLength={6} value={loginForm.pin} onChange={e=>setLoginForm({...loginForm, pin:e.target.value})} required/>
@@ -622,26 +593,40 @@ export default function App() {
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8 bg-gray-50 scroll-smooth">
            
-           {/* DASHBOARD COMPACTO */}
+           {/* DASHBOARD COMPACTO - 50/50 */}
            {activeTab === 'dashboard' && (
                <div className="space-y-4 max-w-6xl mx-auto">
-                   {/* 1. Banner Patrimônio (Compacto Horizontal) */}
-                   <div className="bg-gradient-to-r from-blue-900 to-blue-700 p-4 rounded-xl shadow-lg text-white flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            <div className="bg-white/10 p-3 rounded-full"><Home size={24} className="text-white" /></div>
-                            <div>
-                                <p className="text-blue-200 text-xs font-bold uppercase">Patrimônio Total</p>
-                                <h2 className="text-2xl font-bold">R$ {totalPatrimony.toFixed(2)}</h2>
-                            </div>
+                   
+                   {/* Banner 50/50: Esquerda (Patrimônio) | Direita (Detalhes) */}
+                   <div className="bg-gradient-to-r from-blue-900 to-blue-700 p-0 rounded-xl shadow-lg text-white grid grid-cols-1 md:grid-cols-2 overflow-hidden min-h-[120px]">
+                        
+                        {/* Lado Esquerdo (50%) - Patrimônio Total */}
+                        <div className="p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-blue-500/30 bg-blue-900/20">
+                             <div className="flex items-center gap-3 mb-1">
+                                <div className="bg-white/10 p-2 rounded-full"><Home size={20} className="text-white" /></div>
+                                <p className="text-blue-200 text-xs font-bold uppercase tracking-wider">Patrimônio Total</p>
+                             </div>
+                             <h2 className="text-3xl font-bold">R$ {totalPatrimony.toFixed(2)}</h2>
                         </div>
-                        <div className="flex gap-4 text-xs text-blue-100 border-t md:border-t-0 md:border-l border-blue-500 pt-2 md:pt-0 md:pl-4 w-full md:w-auto justify-around">
-                             <div className="text-center"><span className="block font-bold text-white text-sm">R$ {accumulatedBalance.toFixed(2)}</span><span>Livre</span></div>
-                             <div className="text-center"><span className="block font-bold text-white text-sm">R$ {totalGoals.toFixed(2)}</span><span>Metas</span></div>
-                             <div className="text-center"><span className="block font-bold text-white text-sm">R$ {totalInvestments.toFixed(2)}</span><span>Invest.</span></div>
+
+                        {/* Lado Direito (50%) - Detalhes Divididos */}
+                        <div className="grid grid-cols-3 divide-x divide-blue-500/30 bg-blue-800/10">
+                             <div className="flex flex-col items-center justify-center p-2 hover:bg-white/5 transition-colors">
+                                 <span className="text-lg font-bold text-white block">R$ {accumulatedBalance.toFixed(2)}</span>
+                                 <span className="text-[10px] text-blue-200 uppercase font-bold">Livre</span>
+                             </div>
+                             <div className="flex flex-col items-center justify-center p-2 hover:bg-white/5 transition-colors">
+                                 <span className="text-lg font-bold text-white block">R$ {totalGoals.toFixed(2)}</span>
+                                 <span className="text-[10px] text-blue-200 uppercase font-bold">Metas</span>
+                             </div>
+                             <div className="flex flex-col items-center justify-center p-2 hover:bg-white/5 transition-colors">
+                                 <span className="text-lg font-bold text-white block">R$ {totalInvestments.toFixed(2)}</span>
+                                 <span className="text-[10px] text-blue-200 uppercase font-bold">Invest.</span>
+                             </div>
                         </div>
                    </div>
 
-                   {/* 2. Cards Resumo (Compactos e lado a lado) */}
+                   {/* Cards Resumo */}
                    <div className="grid grid-cols-3 gap-3">
                         <div className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-green-500">
                             <p className="text-[10px] text-gray-500 uppercase font-bold">Entrou</p>
@@ -657,7 +642,7 @@ export default function App() {
                         </div>
                    </div>
 
-                   {/* 3. Gráficos (Altura reduzida para h-64) */}
+                   {/* Gráficos */}
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-white p-4 rounded-xl shadow-sm h-64 flex flex-col">
                             <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2 text-sm"><PieIcon size={16}/> Gastos por Categoria</h3>
@@ -701,8 +686,37 @@ export default function App() {
            {/* --- LANÇAMENTOS --- */}
            {activeTab === 'transactions' && (
              <div className="max-w-6xl mx-auto space-y-6">
-                 {/* 1. RESUMO DO MÊS E PATRIMÔNIO (Restaurado) */}
+                 {/* 1. RESUMO INVERTIDO (Livre na Esquerda 50%) */}
                  <div className="space-y-4">
+                    <div className="bg-gray-800 text-white rounded-xl shadow-lg grid grid-cols-1 md:grid-cols-2 overflow-hidden min-h-[120px]">
+                        
+                        {/* Lado Esquerdo (50%) - Saldo Livre (Disponível) */}
+                        <div className="p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-600 bg-gray-900/30">
+                             <div className="flex items-center gap-3 mb-1">
+                                <div className="bg-green-500/20 p-2 rounded-full"><DollarSign size={20} className="text-green-400" /></div>
+                                <p className="text-gray-400 text-xs font-bold uppercase tracking-wider">Disponível (Livre)</p>
+                             </div>
+                             <h2 className={`text-3xl font-bold ${accumulatedBalance >= 0 ? 'text-white' : 'text-red-300'}`}>R$ {accumulatedBalance.toFixed(2)}</h2>
+                        </div>
+
+                        {/* Lado Direito (50%) - Patrimônio e Outros */}
+                        <div className="grid grid-cols-3 divide-x divide-gray-600 bg-gray-700/10">
+                             <div className="flex flex-col items-center justify-center p-2">
+                                 <span className="text-lg font-bold text-gray-200 block">R$ {totalPatrimony.toFixed(2)}</span>
+                                 <span className="text-[10px] text-gray-500 uppercase font-bold">Total</span>
+                             </div>
+                             <div className="flex flex-col items-center justify-center p-2">
+                                 <span className="text-lg font-bold text-gray-200 block">R$ {totalGoals.toFixed(2)}</span>
+                                 <span className="text-[10px] text-gray-500 uppercase font-bold">Metas</span>
+                             </div>
+                             <div className="flex flex-col items-center justify-center p-2">
+                                 <span className="text-lg font-bold text-gray-200 block">R$ {totalInvestments.toFixed(2)}</span>
+                                 <span className="text-[10px] text-gray-500 uppercase font-bold">Invest.</span>
+                             </div>
+                        </div>
+                    </div>
+
+                    {/* Cards Mensais */}
                     <div className="grid grid-cols-3 gap-2 md:gap-4">
                         <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border-l-4 border-green-500 flex flex-col justify-between">
                             <p className="text-[10px] md:text-xs text-gray-500 uppercase font-bold">Entrou</p>
@@ -715,14 +729,6 @@ export default function App() {
                         <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border-l-4 border-blue-500 flex flex-col justify-between">
                             <p className="text-[10px] md:text-xs text-gray-500 uppercase font-bold">Balanço</p>
                             <p className={`text-sm md:text-xl font-bold truncate ${monthlyBalance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>R$ {monthlyBalance.toFixed(2)}</p>
-                        </div>
-                    </div>
-                    <div className="bg-gray-800 text-white p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-3">
-                        <div className="flex items-center gap-3"><div className="bg-white/10 p-2 rounded-full"><DollarSign size={18}/></div><div><p className="text-[10px] text-gray-400 uppercase tracking-wider">Patrimônio Total</p><p className="text-xl font-bold">R$ {totalPatrimony.toFixed(2)}</p></div></div>
-                        <div className="flex gap-4 text-xs text-gray-300 border-t md:border-t-0 md:border-l border-gray-600 pt-2 md:pt-0 md:pl-4 w-full md:w-auto justify-around md:justify-start">
-                            <div className="text-center"><span className="block font-bold text-white text-sm">R$ {accumulatedBalance.toFixed(2)}</span><span className="text-[10px]">Livre</span></div>
-                            <div className="text-center"><span className="block font-bold text-white text-sm">R$ {totalGoals.toFixed(2)}</span><span className="text-[10px]">Metas</span></div>
-                            <div className="text-center"><span className="block font-bold text-white text-sm">R$ {totalInvestments.toFixed(2)}</span><span className="text-[10px]">Invest.</span></div>
                         </div>
                     </div>
                  </div>
@@ -754,12 +760,35 @@ export default function App() {
                     </div>
                     <div className="bg-white p-4 rounded-xl shadow h-fit max-h-[600px] overflow-y-auto border border-gray-100">
                         <h3 className="font-bold mb-4 flex justify-between items-center text-gray-700">Extrato <span className="text-xs font-normal bg-gray-100 px-3 py-1 rounded-full text-gray-500 border">{formatMonthYear(currentDate)}</span></h3>
-                        {transactions.filter(t => { const [y, m] = t.date.split('-'); return (parseInt(m)-1)===currentDate.getMonth() && parseInt(y)===currentDate.getFullYear() }).slice().reverse().map(t => (
-                            <div key={t.id} className={`flex justify-between items-center border-b border-gray-50 p-3 rounded-lg hover:bg-gray-50 transition-colors ${editingId === t.id ? 'bg-orange-50 border border-orange-200' : ''}`}>
-                                <div><p className="font-bold text-sm flex items-center gap-1">{t.description} {editingId === t.id && <span className="text-orange-500 text-[9px]">(Editando)</span>}</p><p className="text-xs text-gray-500">{t.date.split('-').reverse().join('/')} • {t.category} • <span className="text-indigo-500 font-medium">{t.authorName || 'Membro'}</span></p></div>
-                                <div className="flex items-center gap-2"><span className={`font-bold text-sm ${t.type==='receita'?'text-green-600':'text-red-600'}`}>{t.type==='receita'?'+':'-'} R$ {Number(t.value).toFixed(2)}</span><button onClick={()=>startEditing(t)} className="text-blue-400 hover:text-blue-600 p-1"><Edit size={14}/></button><button onClick={()=>removeTransaction(t.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={14}/></button></div>
-                            </div>
-                        ))}
+                        {transactions.filter(t => { const [y, m] = t.date.split('-'); return (parseInt(m)-1)===currentDate.getMonth() && parseInt(y)===currentDate.getFullYear() }).slice().reverse().map(t => {
+                            // LÓGICA DE COR: 
+                            // 1. Receita = Verde
+                            // 2. Aporte/Investimento = Azul (Novo!)
+                            // 3. Despesa Comum = Vermelho
+                            const isInvestment = t.category.includes('Investimento') || t.category.includes('Aporte') || t.description.includes('Aporte');
+                            const colorClass = t.type === 'receita' ? 'text-green-600' : (isInvestment ? 'text-blue-600' : 'text-red-600');
+                            const sign = t.type === 'receita' ? '+' : '-';
+
+                            return (
+                                <div key={t.id} className={`flex justify-between items-center border-b border-gray-50 p-3 rounded-lg hover:bg-gray-50 transition-colors ${editingId === t.id ? 'bg-orange-50 border border-orange-200' : ''}`}>
+                                    <div>
+                                        <p className="font-bold text-sm flex items-center gap-1">
+                                            {t.description} 
+                                            {editingId === t.id && <span className="text-orange-500 text-[9px]">(Editando)</span>}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            {t.date.split('-').reverse().join('/')} • {t.category} • <span className="text-indigo-500 font-medium">{t.authorName || 'Membro'}</span>
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`font-bold text-sm ${colorClass}`}>
+                                            {sign} R$ {Number(t.value).toFixed(2)}
+                                        </span>
+                                        <button onClick={()=>startEditing(t)} className="text-blue-400 hover:text-blue-600 p-1"><Edit size={14}/></button><button onClick={()=>removeTransaction(t.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={14}/></button>
+                                    </div>
+                                </div>
+                            );
+                        })}
                         {transactions.length === 0 && <div className="text-center text-gray-400 py-10 flex flex-col items-center"><List size={40} className="mb-2 opacity-20"/><p>Nenhum lançamento.</p></div>}
                     </div>
                  </div>
@@ -1037,13 +1066,10 @@ export default function App() {
                        </div>
                        
                        <div className="flex gap-4 w-full md:w-auto">
-                           {/* ID da Família */}
                            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 flex-1 text-center">
                                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">ID da Família</p>
                                <p className="text-sm font-mono font-bold text-gray-800 select-all">{currentUser.familyId}</p>
                            </div>
-
-                           {/* PIN de Acesso (COM O BOTÃO DE EDITAR) */}
                            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 w-32 text-center relative group">
                                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">PIN de Acesso</p>
                                <div className="flex items-center justify-center gap-2">
@@ -1051,7 +1077,6 @@ export default function App() {
                                        <p className="text-sm font-mono font-bold text-gray-800">****</p>
                                        <Eye size={14} className="text-gray-400"/>
                                    </div>
-                                   {/* Botão de Editar Novo */}
                                    <button onClick={handleEditPin} className="text-blue-500 hover:text-blue-700 ml-1" title="Alterar PIN">
                                        <Edit size={14}/>
                                    </button>
