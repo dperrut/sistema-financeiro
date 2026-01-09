@@ -3,7 +3,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, Target, Trash2, LogOut, 
   Users, Lock, Eye, EyeOff, ChevronLeft, ChevronRight, Calendar, 
   Edit, XCircle, Briefcase, Upload, Home, List, AlertTriangle, PieChart as PieIcon,
-  ArrowLeft // Import novo
+  ArrowLeft, Key, LogIn
 } from 'lucide-react';
 
 // --- IMPORTAÇÕES DE GRÁFICOS (Recharts) ---
@@ -21,7 +21,7 @@ import {
     onAuthStateChanged,
     updateProfile,
     updatePassword,
-    sendPasswordResetEmail // <--- IMPORTANTE: Nova função importada
+    sendPasswordResetEmail
 } from 'firebase/auth';
 import { 
     ref, 
@@ -39,26 +39,24 @@ export default function App() {
   // ==================================================================================
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // --- NOVOS ESTADOS PARA CATEGORIAS ---
-  const [newExpenseCat, setNewExpenseCat] = useState('');
-  const [newIncomeCat, setNewIncomeCat] = useState('');
   
   // Login, Cadastro e Reset
-  const [authMode, setAuthMode] = useState('login'); // 'login', 'register' ou 'reset'
-  const [loginForm, setLoginForm] = useState({ email: '', password: '', name: '' });
+  const [authMode, setAuthMode] = useState('login'); 
+  // ADICIONADO: Campo 'pin' no formulário de login/registro
+  const [loginForm, setLoginForm] = useState({ email: '', password: '', name: '', pin: '' });
   const [showPassword, setShowPassword] = useState(false);
 
   // Navegação
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // Dados do Sistema (Vindos da Família)
+  // Dados do Sistema
   const [familyName, setFamilyName] = useState('Minha Família');
+  const [familyPin, setFamilyPin] = useState(''); // NOVO: Guarda o PIN da família atual
   const [transactions, setTransactions] = useState([]);
   const [goals, setGoals] = useState([]);
   const [investments, setInvestments] = useState([]);
   
-  // Categorias e Cores
+  // Categorias
   const [expenseCategories, setExpenseCategories] = useState(['Alimentação', 'Transporte', 'Moradia', 'Lazer', 'Saúde', 'Educação', 'Outros']);
   const [incomeCategories, setIncomeCategories] = useState(['Salário', 'Extra', 'Investimento', 'Presente', 'Outros']);
   const COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1', '#84CC16', '#14B8A6'];
@@ -71,15 +69,22 @@ export default function App() {
   const [withdrawModal, setWithdrawModal] = useState({ show: false, type: '', id: null, name: '' });
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', reason: '' });
 
-  // Helpers
-  const formatMonthYear = (date) => date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  
-  // Inputs Temporários (Formulários)
+  // Inputs Temporários
   const [incomeForm, setIncomeForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '' });
   const [expenseForm, setExpenseForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '', paymentMethod: 'Cartão de Crédito', installments: '1' });
   const [goalForm, setGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', description: '' });
   const [investmentForm, setInvestmentForm] = useState({ name: '', type: 'Renda Fixa', currentAmount: '' });
   const [changePasswordForm, setChangePasswordForm] = useState({ newPassword: '', confirmPassword: '' });
+  
+  // Novos Estados para Categorias
+  const [newExpenseCat, setNewExpenseCat] = useState('');
+  const [newIncomeCat, setNewIncomeCat] = useState('');
+
+  // NOVO: Estado para entrar em outra família
+  const [joinFamilyForm, setJoinFamilyForm] = useState({ familyId: '', pin: '' });
+
+  // Helpers
+  const formatMonthYear = (date) => date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   // ==================================================================================
   // 2. CONEXÃO COM A NUVEM
@@ -122,6 +127,8 @@ export default function App() {
           const data = snapshot.val();
           if (data) {
               setFamilyName(data.name || 'Minha Família');
+              setFamilyPin(data.pin || '0000'); // Carrega o PIN
+
               if (data.transactions) setTransactions(Object.values(data.transactions)); else setTransactions([]);
               if (data.goals) setGoals(Object.values(data.goals)); else setGoals([]);
               if (data.investments) setInvestments(Object.values(data.investments)); else setInvestments([]);
@@ -135,18 +142,14 @@ export default function App() {
   // 3. LÓGICA DE AÇÃO
   // ==================================================================================
 
-  // --- NOVA FUNÇÃO: RECUPERAR SENHA ---
   const handleForgotPassword = async (e) => {
       e.preventDefault();
       if (!loginForm.email) return alert("Digite seu e-mail para recuperar a senha.");
-      
       try {
           await sendPasswordResetEmail(auth, loginForm.email);
-          alert(`E-mail de recuperação enviado para: ${loginForm.email}\n\nVerifique sua caixa de entrada (e spam).`);
-          setAuthMode('login'); // Volta para o login
-      } catch (error) {
-          alert("Erro ao enviar e-mail: " + error.message);
-      }
+          alert(`E-mail de recuperação enviado para: ${loginForm.email}\n\nVerifique sua caixa de entrada.`);
+          setAuthMode('login');
+      } catch (error) { alert("Erro ao enviar e-mail: " + error.message); }
   };
 
   const handleAuth = async (e) => {
@@ -155,6 +158,9 @@ export default function App() {
           if (authMode === 'login') {
               await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
           } else if (authMode === 'register') {
+              // Validação do PIN no registro
+              if (!loginForm.pin || loginForm.pin.length < 4) return alert("Crie um PIN de acesso com pelo menos 4 dígitos.");
+
               const userCred = await createUserWithEmailAndPassword(auth, loginForm.email, loginForm.password);
               const uid = userCred.user.uid;
               const newFamilyRef = push(ref(db, 'families'));
@@ -163,7 +169,17 @@ export default function App() {
               let nomeFamilia = "Família " + loginForm.name.split(' ')[0];
               if (loginForm.name.toLowerCase().includes('figueiredo')) nomeFamilia = "Família Figueiredo";
 
-              await set(newFamilyRef, { id: familyId, name: nomeFamilia, createdBy: uid, members: { [uid]: loginForm.name }, expenseCategories, incomeCategories });
+              // Salva o PIN na criação da família
+              await set(newFamilyRef, { 
+                  id: familyId, 
+                  name: nomeFamilia, 
+                  pin: loginForm.pin, // <--- SALVA O PIN
+                  createdBy: uid, 
+                  members: { [uid]: loginForm.name }, 
+                  expenseCategories, 
+                  incomeCategories 
+              });
+
               await set(ref(db, `users/${uid}`), { name: loginForm.name, email: loginForm.email, familyId: familyId });
               await updateProfile(userCred.user, { displayName: loginForm.name });
               window.location.reload();
@@ -172,17 +188,68 @@ export default function App() {
   };
 
   const handleLogout = () => {
-      // 1. Limpa os campos de texto (Segurança)
-      setLoginForm({ email: '', password: '', name: '' });
-      // 2. Garante que volta para a tela de Login (caso estivesse em cadastro)
+      setLoginForm({ email: '', password: '', name: '', pin: '' });
       setAuthMode('login');
-      // 3. Desconecta do Firebase
       signOut(auth);
   };
 
   const handleChangePassword = async () => {
       if (changePasswordForm.newPassword !== changePasswordForm.confirmPassword) return alert("Senhas não conferem");
       try { await updatePassword(auth.currentUser, changePasswordForm.newPassword); alert("Senha alterada!"); handleLogout(); } catch (error) { alert("Erro: " + error.message); }
+  };
+
+  const handleEditPin = async () => {
+      const newPin = prompt("Digite o novo PIN de acesso da Família (Mínimo 4 dígitos):");
+      if (!newPin || newPin.length < 4) return alert("PIN inválido. Tente novamente.");
+      
+      try {
+          await update(ref(db, `families/${currentUser.familyId}`), { pin: newPin });
+          setFamilyPin(newPin); // Atualiza na tela na hora
+          alert("PIN alterado com sucesso!");
+      } catch (error) {
+          alert("Erro ao salvar PIN: " + error.message);
+      }
+  };
+
+  // --- LÓGICA PARA ENTRAR EM OUTRA FAMÍLIA ---
+  const handleJoinFamily = async () => {
+      if (!joinFamilyForm.familyId || !joinFamilyForm.pin) return alert("Preencha o ID e o PIN.");
+      
+      const targetFamilyId = joinFamilyForm.familyId.trim();
+      const inputPin = joinFamilyForm.pin.trim();
+
+      try {
+          // 1. Busca a família no banco
+          const familySnapshot = await get(ref(db, `families/${targetFamilyId}`));
+          
+          if (!familySnapshot.exists()) {
+              return alert("Família não encontrada. Verifique o ID.");
+          }
+
+          const familyData = familySnapshot.val();
+
+          // 2. Verifica o PIN
+          if (String(familyData.pin) !== String(inputPin)) {
+              return alert("PIN incorreto! Acesso negado.");
+          }
+
+          // 3. Se passou, atualiza o usuário
+          if (window.confirm(`Entrar na "${familyData.name}"?`)) {
+              const uid = currentUser.uid;
+              
+              // Atualiza o perfil do usuário
+              await update(ref(db, `users/${uid}`), { familyId: targetFamilyId });
+              
+              // Adiciona o usuário na lista de membros da família
+              await update(ref(db, `families/${targetFamilyId}/members`), { [uid]: currentUser.name });
+
+              alert("Sucesso! Você agora faz parte desta família.");
+              window.location.reload(); // Recarrega para pegar os novos dados
+          }
+
+      } catch (error) {
+          alert("Erro ao entrar na família: " + error.message);
+      }
   };
 
   const resetAllData = async () => {
@@ -197,20 +264,41 @@ export default function App() {
       } catch (error) { alert("Erro: " + error.message); }
   }
 
+  // --- Gerenciamento de Categorias ---
+  const handleAddCategory = (type, value) => {
+      if (!value) return;
+      const isExpense = type === 'expense';
+      const list = isExpense ? expenseCategories : incomeCategories;
+      const path = isExpense ? 'expenseCategories' : 'incomeCategories';
+      if (list.includes(value)) return alert("Categoria já existe!");
+      const newList = [...list, value];
+      if (isExpense) setExpenseCategories(newList); else setIncomeCategories(newList);
+      set(ref(db, `families/${currentUser.familyId}/${path}`), newList);
+      if (isExpense) setNewExpenseCat(''); else setNewIncomeCat('');
+  };
+
+  const handleRemoveCategory = (type, value) => {
+      const isExpense = type === 'expense';
+      const list = isExpense ? expenseCategories : incomeCategories;
+      const path = isExpense ? 'expenseCategories' : 'incomeCategories';
+      if (list.length <= 1) return alert("É necessário ter pelo menos uma categoria.");
+      if (!window.confirm(`Excluir categoria "${value}"?`)) return;
+      const newList = list.filter(c => c !== value);
+      if (isExpense) setExpenseCategories(newList); else setIncomeCategories(newList);
+      set(ref(db, `families/${currentUser.familyId}/${path}`), newList);
+  };
+
   const addTransaction = (type) => {
     try {
         const isExpense = type === 'expense' || type === 'despesa';
         const form = type === 'income' ? incomeForm : expenseForm;
-        
         if (!form.description || !form.amount) return alert('Preencha os dados.');
         const val = parseFloat(form.amount.toString().replace(',', '.'));
         if (isNaN(val) || val <= 0) return alert("Valor inválido.");
         if (!currentUser?.familyId) return alert("Erro: ID da Família não encontrado.");
         const fid = currentUser.familyId;
-
         let finalCategory = form.category;
         if (!finalCategory) finalCategory = isExpense ? (expenseCategories[0] || 'Geral') : (incomeCategories[0] || 'Geral');
-
         const metaData = { createdBy: currentUser.uid, authorName: currentUser.name || 'Membro' };
 
         if (editingId) {
@@ -273,7 +361,7 @@ export default function App() {
   const addGoal = () => { 
       if (!goalForm.name) return;
       const id = Date.now();
-      set(ref(db, `families/${currentUser.familyId}/goals/${id}`), { id, ...goalForm, currentAmount: 0, createdBy: currentUser.uid });
+      set(ref(db, `families/${currentUser.familyId}/goals/${id}`), { id, ...goalForm, currentAmount: 0, createdBy: currentUser.uid, authorName: currentUser.name });
       setGoalForm({ name: '', targetAmount: '', targetDate: '', description: '' });
   };
   
@@ -299,12 +387,12 @@ export default function App() {
       if (!investmentForm.name) return;
       const startVal = parseFloat(investmentForm.currentAmount) || 0;
       const id = Date.now();
-      const newInv = { id, name: investmentForm.name, type: investmentForm.type, currentAmount: startVal, createdBy: currentUser.uid };
+      const newInv = { id, name: investmentForm.name, type: investmentForm.type, currentAmount: startVal, createdBy: currentUser.uid, authorName: currentUser.name };
       set(ref(db, `families/${currentUser.familyId}/investments/${id}`), newInv);
       if (startVal > 0) {
           const tId = Date.now() + 1;
           set(ref(db, `families/${currentUser.familyId}/transactions/${tId}`), {
-              id: tId, type: 'despesa', description: `Aporte: ${newInv.name}`, amount: startVal.toFixed(2), value: startVal, category: 'Investimento/Aporte', date: new Date().toISOString().split('T')[0], createdBy: currentUser.uid
+              id: tId, type: 'despesa', description: `Aporte: ${newInv.name}`, amount: startVal.toFixed(2), value: startVal, category: 'Investimento/Aporte', date: new Date().toISOString().split('T')[0], createdBy: currentUser.uid, authorName: currentUser.name
           });
       }
       setInvestmentForm({ name: '', type: 'Renda Fixa', currentAmount: '' });
@@ -328,35 +416,6 @@ export default function App() {
       }
   };
 
-  // --- GERENCIAMENTO DE CATEGORIAS ---
-  const handleAddCategory = (type, value) => {
-      if (!value) return;
-      const isExpense = type === 'expense';
-      const list = isExpense ? expenseCategories : incomeCategories;
-      const path = isExpense ? 'expenseCategories' : 'incomeCategories';
-      
-      if (list.includes(value)) return alert("Categoria já existe!");
-      
-      const newList = [...list, value];
-      if (isExpense) setExpenseCategories(newList); else setIncomeCategories(newList);
-      set(ref(db, `families/${currentUser.familyId}/${path}`), newList);
-      
-      if (isExpense) setNewExpenseCat(''); else setNewIncomeCat('');
-  };
-
-  const handleRemoveCategory = (type, value) => {
-      const isExpense = type === 'expense';
-      const list = isExpense ? expenseCategories : incomeCategories;
-      const path = isExpense ? 'expenseCategories' : 'incomeCategories';
-
-      if (list.length <= 1) return alert("É necessário ter pelo menos uma categoria.");
-      if (!window.confirm(`Excluir categoria "${value}"?`)) return;
-
-      const newList = list.filter(c => c !== value);
-      if (isExpense) setExpenseCategories(newList); else setIncomeCategories(newList);
-      set(ref(db, `families/${currentUser.familyId}/${path}`), newList);
-  };
-
   const addValueToTarget = (type, id, vStr) => { 
       const val = parseFloat(vStr); if (!val) return;
       const fid = currentUser.familyId;
@@ -366,7 +425,7 @@ export default function App() {
       update(ref(db, `families/${fid}/${path}/${id}`), { currentAmount: (item.currentAmount || 0) + val });
       const tId = Date.now();
       set(ref(db, `families/${fid}/transactions/${tId}`), {
-          id: tId, type: 'despesa', description: `Aporte: ${item.name}`, amount: vStr, value: val, category: 'Investimento/Aporte', date: new Date().toISOString().split('T')[0], createdBy: currentUser.uid
+          id: tId, type: 'despesa', description: `Aporte: ${item.name}`, amount: vStr, value: val, category: 'Investimento/Aporte', date: new Date().toISOString().split('T')[0], createdBy: currentUser.uid, authorName: currentUser.name
       });
   };
 
@@ -380,7 +439,7 @@ export default function App() {
       update(ref(db, `families/${fid}/${path}/${id}`), { currentAmount: (item.currentAmount || 0) - val });
       const tId = Date.now();
       set(ref(db, `families/${fid}/transactions/${tId}`), {
-          id: tId, type: 'receita', description: `Resgate: ${name}`, amount: withdrawForm.amount, value: val, category: 'Resgate', date: new Date().toISOString().split('T')[0], createdBy: currentUser.uid
+          id: tId, type: 'receita', description: `Resgate: ${name}`, amount: withdrawForm.amount, value: val, category: 'Resgate', date: new Date().toISOString().split('T')[0], createdBy: currentUser.uid, authorName: currentUser.name
       });
       setWithdrawModal({ show:false, type:'', id:null, name:'' });
       setWithdrawForm({ amount: '', reason: '' });
@@ -487,7 +546,17 @@ export default function App() {
               </form>
           ) : (
               <form onSubmit={handleAuth}>
-                {authMode === 'register' && (<div className="mb-4"><label className="block text-xs font-bold text-gray-700 mb-1">Nome</label><input className="w-full p-3 border rounded-lg bg-gray-50" placeholder="Ex: Diego" value={loginForm.name} onChange={e=>setLoginForm({...loginForm, name:e.target.value})} required/></div>)}
+                {authMode === 'register' && (
+                    <>
+                        <div className="mb-4"><label className="block text-xs font-bold text-gray-700 mb-1">Nome</label><input className="w-full p-3 border rounded-lg bg-gray-50" placeholder="Ex: Diego" value={loginForm.name} onChange={e=>setLoginForm({...loginForm, name:e.target.value})} required/></div>
+                        {/* INPUT DE PIN NO REGISTRO */}
+                        <div className="mb-4">
+                            <label className="block text-xs font-bold text-gray-700 mb-1">Crie um PIN da Família (Acesso)</label>
+                            <input className="w-full p-3 border rounded-lg bg-gray-50 text-center tracking-widest font-mono text-lg" placeholder="0000" maxLength={6} value={loginForm.pin} onChange={e=>setLoginForm({...loginForm, pin:e.target.value})} required/>
+                            <p className="text-[10px] text-gray-400 mt-1">Sua esposa/marido usará este PIN para entrar.</p>
+                        </div>
+                    </>
+                )}
                 <div className="mb-4"><label className="block text-xs font-bold text-gray-700 mb-1">E-mail</label><input className="w-full p-3 border rounded-lg bg-gray-50" type="email" placeholder="email@exemplo.com" value={loginForm.email} onChange={e=>setLoginForm({...loginForm, email:e.target.value})} required/></div>
                 <div className="mb-6 relative">
                     <label className="block text-xs font-bold text-gray-700 mb-1">Senha</label>
@@ -495,7 +564,7 @@ export default function App() {
                     <button type="button" className="absolute right-3 top-8 text-gray-400" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
                     {authMode === 'login' && <div className="text-right mt-2"><button type="button" onClick={()=>setAuthMode('reset')} className="text-xs text-blue-500 hover:underline">Esqueci minha senha</button></div>}
                 </div>
-                <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 shadow-lg transition-all">{authMode === 'login' ? 'Entrar' : 'Criar'}</button>
+                <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 shadow-lg transition-all">{authMode === 'login' ? 'Entrar' : 'Criar Família'}</button>
                 <div className="mt-6 text-center border-t pt-4"><p className="text-sm text-gray-600">{authMode === 'login' ? 'Novo por aqui?' : 'Já tem conta?'} <button type="button" onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} className="ml-2 text-blue-600 font-bold hover:underline">{authMode === 'login' ? 'Criar Conta' : 'Login'}</button></p></div>
               </form>
           )}
@@ -556,7 +625,6 @@ export default function App() {
            {/* DASHBOARD COMPACTO */}
            {activeTab === 'dashboard' && (
                <div className="space-y-4 max-w-6xl mx-auto">
-                   
                    {/* 1. Banner Patrimônio (Compacto Horizontal) */}
                    <div className="bg-gradient-to-r from-blue-900 to-blue-700 p-4 rounded-xl shadow-lg text-white flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
@@ -956,84 +1024,108 @@ export default function App() {
            )}
 
            {activeTab === 'settings' && (
-               <div className="max-w-4xl mx-auto flex flex-col h-full justify-between pb-4">
+               <div className="max-w-4xl mx-auto flex flex-col gap-6 pb-8">
                    
-                   {/* --- GERENCIAMENTO DE CATEGORIAS --- */}
-                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
-                       <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 border-b pb-2">
-                           <List size={20} className="text-blue-600"/> Personalizar Categorias
-                       </h3>
-                       
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                           {/* Coluna Receitas */}
+                   {/* --- 1. DADOS DA FAMÍLIA ATUAL (ID e PIN) --- */}
+                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-indigo-100 flex flex-col md:flex-row gap-6 items-center justify-between">
+                       <div className="flex items-center gap-3">
+                           <div className="bg-indigo-100 p-3 rounded-full text-indigo-600"><Users size={24}/></div>
                            <div>
-                               <h4 className="font-bold text-green-700 mb-3 text-sm">Categorias de Receitas</h4>
-                               <div className="flex gap-2 mb-3">
-                                   <input 
-                                       className="flex-1 p-2 border rounded-lg text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-green-200"
-                                       placeholder="Nova categoria..."
-                                       value={newIncomeCat}
-                                       onChange={e => setNewIncomeCat(e.target.value)}
-                                   />
-                                   <button onClick={() => handleAddCategory('income', newIncomeCat)} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700">+</button>
-                               </div>
-                               <div className="flex flex-wrap gap-2">
-                                   {incomeCategories.map(cat => (
-                                       <span key={cat} className="px-3 py-1 bg-green-50 text-green-800 rounded-full text-xs font-medium border border-green-100 flex items-center gap-2 group">
-                                           {cat}
-                                           <button onClick={() => handleRemoveCategory('income', cat)} className="text-green-400 hover:text-red-500"><XCircle size={12}/></button>
-                                       </span>
-                                   ))}
-                               </div>
+                               <h3 className="font-bold text-indigo-900">Sua Família Atual</h3>
+                               <p className="text-xs text-gray-500">Compartilhe estes dados com quem for acessar.</p>
+                           </div>
+                       </div>
+                       
+                       <div className="flex gap-4 w-full md:w-auto">
+                           {/* ID da Família */}
+                           <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 flex-1 text-center">
+                               <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">ID da Família</p>
+                               <p className="text-sm font-mono font-bold text-gray-800 select-all">{currentUser.familyId}</p>
                            </div>
 
-                           {/* Coluna Despesas */}
-                           <div>
-                               <h4 className="font-bold text-red-700 mb-3 text-sm">Categorias de Despesas</h4>
-                               <div className="flex gap-2 mb-3">
-                                   <input 
-                                       className="flex-1 p-2 border rounded-lg text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-red-200"
-                                       placeholder="Nova categoria..."
-                                       value={newExpenseCat}
-                                       onChange={e => setNewExpenseCat(e.target.value)}
-                                   />
-                                   <button onClick={() => handleAddCategory('expense', newExpenseCat)} className="bg-red-600 text-white p-2 rounded-lg hover:bg-red-700">+</button>
-                               </div>
-                               <div className="flex flex-wrap gap-2">
-                                   {expenseCategories.map(cat => (
-                                       <span key={cat} className="px-3 py-1 bg-red-50 text-red-800 rounded-full text-xs font-medium border border-red-100 flex items-center gap-2 group">
-                                           {cat}
-                                           <button onClick={() => handleRemoveCategory('expense', cat)} className="text-red-400 hover:text-red-500"><XCircle size={12}/></button>
-                                       </span>
-                                   ))}
+                           {/* PIN de Acesso (COM O BOTÃO DE EDITAR) */}
+                           <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 w-32 text-center relative group">
+                               <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">PIN de Acesso</p>
+                               <div className="flex items-center justify-center gap-2">
+                                   <div className="flex items-center gap-1 cursor-pointer" onClick={() => alert(`Seu PIN é: ${familyPin || '0000'}`)}>
+                                       <p className="text-sm font-mono font-bold text-gray-800">****</p>
+                                       <Eye size={14} className="text-gray-400"/>
+                                   </div>
+                                   {/* Botão de Editar Novo */}
+                                   <button onClick={handleEditPin} className="text-blue-500 hover:text-blue-700 ml-1" title="Alterar PIN">
+                                       <Edit size={14}/>
+                                   </button>
                                </div>
                            </div>
                        </div>
                    </div>
 
-                   {/* --- RODAPÉ: ZONA DE PERIGO E DADOS --- */}
-                   <div className="flex flex-col md:flex-row gap-4 items-end">
-                       
-                       {/* Zona de Perigo (Esquerda - Maior) */}
-                       <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex-1 w-full">
-                           <h3 className="font-bold mb-1 flex items-center gap-2 text-red-700 text-sm"><AlertTriangle size={16}/> Zona de Perigo</h3>
-                           <p className="text-xs text-red-600 mb-3">Apaga todos os lançamentos, metas e investimentos. Cuidado!</p>
-                           <button onClick={resetAllData} className="w-full bg-white text-red-600 border border-red-200 px-4 py-2 rounded-lg font-bold hover:bg-red-600 hover:text-white transition-all text-xs flex justify-center items-center gap-2">
-                               <Trash2 size={14}/> Resetar Tudo
+                   {/* --- 2. ENTRAR EM OUTRA FAMÍLIA --- */}
+                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                       <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-2">
+                           <LogIn size={20} className="text-blue-600"/> Conectar a Outra Família
+                       </h3>
+                       <div className="flex flex-col md:flex-row gap-3 items-end">
+                           <div className="w-full">
+                               <label className="block text-xs font-bold text-gray-500 mb-1">ID da Família</label>
+                               <input 
+                                   className="w-full p-2.5 border rounded-lg bg-gray-50 text-sm" 
+                                   placeholder="Cole o ID aqui..."
+                                   value={joinFamilyForm.familyId}
+                                   onChange={e => setJoinFamilyForm({...joinFamilyForm, familyId: e.target.value})}
+                               />
+                           </div>
+                           <div className="w-32">
+                               <label className="block text-xs font-bold text-gray-500 mb-1">PIN</label>
+                               <input 
+                                   className="w-full p-2.5 border rounded-lg bg-gray-50 text-sm text-center" 
+                                   placeholder="0000"
+                                   maxLength={6}
+                                   value={joinFamilyForm.pin}
+                                   onChange={e => setJoinFamilyForm({...joinFamilyForm, pin: e.target.value})}
+                               />
+                           </div>
+                           <button onClick={handleJoinFamily} className="w-full md:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition-colors text-sm whitespace-nowrap">
+                               Entrar
                            </button>
                        </div>
+                   </div>
 
-                       {/* Dados da Família (Direita - Menor e Compacto) */}
-                       <div className="bg-white p-4 rounded-xl border border-gray-200 w-full md:w-64 shadow-sm">
-                           <div className="flex items-center gap-2 mb-2 text-gray-500">
-                               <Users size={16}/> <span className="text-xs font-bold uppercase">Família</span>
+                   {/* --- 3. GERENCIAMENTO DE CATEGORIAS --- */}
+                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                       <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 border-b pb-2">
+                           <List size={20} className="text-gray-600"/> Personalizar Categorias
+                       </h3>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                           <div>
+                               <h4 className="font-bold text-green-700 mb-3 text-sm">Categorias de Receitas</h4>
+                               <div className="flex gap-2 mb-3">
+                                   <input className="flex-1 p-2 border rounded-lg text-sm bg-gray-50" placeholder="Nova categoria..." value={newIncomeCat} onChange={e => setNewIncomeCat(e.target.value)} />
+                                   <button onClick={() => handleAddCategory('income', newIncomeCat)} className="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700">+</button>
+                               </div>
+                               <div className="flex flex-wrap gap-2">{incomeCategories.map(cat => (<span key={cat} className="px-3 py-1 bg-green-50 text-green-800 rounded-full text-xs font-medium border border-green-100 flex items-center gap-2 group">{cat}<button onClick={() => handleRemoveCategory('income', cat)} className="text-green-400 hover:text-red-500"><XCircle size={12}/></button></span>))}</div>
                            </div>
-                           <div className="bg-gray-100 p-2 rounded border border-gray-200 text-center">
-                               <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">ID de Acesso</p>
-                               <p className="text-sm font-mono font-bold text-gray-700 select-all">{currentUser.familyId}</p>
+                           <div>
+                               <h4 className="font-bold text-red-700 mb-3 text-sm">Categorias de Despesas</h4>
+                               <div className="flex gap-2 mb-3">
+                                   <input className="flex-1 p-2 border rounded-lg text-sm bg-gray-50" placeholder="Nova categoria..." value={newExpenseCat} onChange={e => setNewExpenseCat(e.target.value)} />
+                                   <button onClick={() => handleAddCategory('expense', newExpenseCat)} className="bg-red-600 text-white p-2 rounded-lg hover:bg-red-700">+</button>
+                               </div>
+                               <div className="flex flex-wrap gap-2">{expenseCategories.map(cat => (<span key={cat} className="px-3 py-1 bg-red-50 text-red-800 rounded-full text-xs font-medium border border-red-100 flex items-center gap-2 group">{cat}<button onClick={() => handleRemoveCategory('expense', cat)} className="text-red-400 hover:text-red-500"><XCircle size={12}/></button></span>))}</div>
                            </div>
                        </div>
+                   </div>
 
+                   {/* --- 4. ZONA DE PERIGO E DADOS --- */}
+                   <div className="flex flex-col md:flex-row gap-4">
+                       <div className="bg-white p-6 rounded-xl shadow border-l-4 border-orange-500 flex-1">
+                           <h3 className="font-bold mb-2 flex items-center gap-2 text-sm"><Upload size={16}/> Migrar Dados Locais</h3>
+                           <label className="bg-orange-50 text-orange-700 px-4 py-2 rounded cursor-pointer font-bold block text-center text-xs border border-orange-200 hover:bg-orange-100">Selecionar Backup JSON<input type="file" accept=".json" onChange={importDataToFirebase} className="hidden" /></label>
+                       </div>
+                       <div className="bg-white p-6 rounded-xl shadow border-l-4 border-red-600 flex-1">
+                           <h3 className="font-bold mb-2 flex items-center gap-2 text-red-700 text-sm"><AlertTriangle size={16}/> Zona de Perigo</h3>
+                           <button onClick={resetAllData} className="w-full bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg font-bold hover:bg-red-600 hover:text-white transition-all text-xs flex justify-center items-center gap-2"><Trash2 size={14}/> Resetar Tudo</button>
+                       </div>
                    </div>
                </div>
            )}
