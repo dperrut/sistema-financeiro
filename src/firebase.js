@@ -7,12 +7,13 @@ import { getDatabase } from "firebase/database"; // Importa Banco de Dados
 
 // Sua configuração (Copiada do que você me mandou)
 const firebaseConfig = {
-  apiKey: "AIzaSyBTNIdcbDxNsDgI5u0o-csJU65lK16xdUo",
-  authDomain: "gerenciador-financeiro-97d8f.firebaseapp.com",
-  projectId: "gerenciador-financeiro-97d8f",
-  storageBucket: "gerenciador-financeiro-97d8f.firebasestorage.app",
-  messagingSenderId: "989350635860",
-  appId: "1:989350635860:web:20953befcea333d7e700c1"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // 1. Inicializa o App
