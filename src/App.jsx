@@ -272,10 +272,24 @@ export default function App() {
 
   const startEditing = (t) => { setEditingId(t.id); setActiveTab('transactions'); };
 
-  const addGoal = () => {
-      const id = Date.now();
-      set(ref(db, `families/${currentUser.familyId}/goals/${id}`), { id, ...goalForm, currentAmount: 0 });
-      setGoalForm({ name: '', targetAmount: '', targetDate: '', description: '' });
+  const addGoal = async () => {
+    // TRAVA DE SEGURANÇA: Verifica se os campos principais estão vazios
+    if (!goalForm.name || !goalForm.targetAmount || !goalForm.targetDate) {
+      alert("⚠️ Por favor, preencha o nome, o valor alvo e a data da meta!");
+      return;
+    }
+
+    const id = Date.now().toString();
+    const newGoal = {
+      ...goalForm,
+      id,
+      currentAmount: 0,
+      createdAt: new Date().toISOString()
+    };
+    
+    await set(ref(db, `families/${currentUser.familyId}/goals/${id}`), newGoal);
+    setGoalForm({ name: '', targetAmount: '', targetDate: '', description: '' });
+    alert("🎯 Meta criada com sucesso!");
   };
 
   const deleteGoal = async (id) => {
@@ -312,30 +326,58 @@ export default function App() {
     }
   };
 
-  const addInvestment = () => {
-    if (!investmentForm.name || !investmentForm.currentAmount) return alert("Preencha o nome e o valor.");
-    
-    const startVal = parseFloat(investmentForm.currentAmount.toString().replace(/\./g, '').replace(',', '.'));
+  const addInvestment = async () => {
+    // TRAVA DE SEGURANÇA
+    if (!investmentForm.name || !investmentForm.targetAmount || !investmentForm.targetDate) {
+      alert("⚠️ Por favor, preencha todos os campos do investimento!");
+      return;
+    }
+
     const id = Date.now().toString();
-    const fid = currentUser.familyId;
-
-    const newInv = { 
-      id, 
-      name: investmentForm.name, 
-      type: investmentForm.type, 
-      currentAmount: startVal, 
-      createdBy: currentUser.uid, 
-      authorName: currentUser.name 
+    const newInv = {
+      ...investmentForm,
+      id,
+      currentAmount: 0,
+      createdAt: new Date().toISOString()
     };
-
-    set(ref(db, `families/${fid}/investments/${id}`), newInv).then(() => {
-      // --- CORREÇÃO: LIMPANDO O FORMULÁRIO ---
-      setInvestmentForm({ name: '', type: 'Renda Fixa', currentAmount: '' });
-      showToast("Investimento registrado!", "success");
-    });
+    
+    await set(ref(db, `families/${currentUser.familyId}/investments/${id}`), newInv);
+    setInvestmentForm({ name: '', targetAmount: '', targetDate: '' });
+    alert("💰 Investimento registrado!");
   };
 
-  const deleteInvestment = (id) => { remove(ref(db, `families/${currentUser.familyId}/investments/${id}`)); };
+  const deleteInvestment = async (id) => {
+    const invParaDeletar = investments.find(i => i.id === id);
+    if (!invParaDeletar) return;
+
+    const saldoExistente = parseFloat(invParaDeletar.currentAmount || 0);
+
+    if (saldoExistente > 0) {
+      const confirmar = window.confirm(
+        `Este investimento possui R$ ${saldoExistente.toFixed(2)} acumulados. Ao excluir, este valor será transferido para o seu Saldo Livre. Deseja continuar?`
+      );
+      if (confirmar) {
+        const transId = Date.now().toString();
+        await set(ref(db, `families/${currentUser.familyId}/transactions/${transId}`), {
+          id: transId,
+          type: 'receita',
+          description: `Estorno (Exclusão de Invest.): ${invParaDeletar.name}`,
+          amount: saldoExistente.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+          value: saldoExistente,
+          date: new Date().toISOString().split('T')[0],
+          category: 'Estorno',
+          createdBy: currentUser.uid,
+          authorName: currentUser.name
+        });
+        await remove(ref(db, `families/${currentUser.familyId}/investments/${id}`));
+        alert("Investimento excluído e saldo transferido para o Saldo Livre.");
+      }
+    } else {
+      if (window.confirm("Tem certeza que deseja excluir este investimento?")) {
+        await remove(ref(db, `families/${currentUser.familyId}/investments/${id}`));
+      }
+    }
+  };
 
   const addValueToTarget = async (type, id, vStr) => {
       const val = parseFloat(vStr.toString().replace(/\./g, '').replace(',', '.'));
