@@ -60,6 +60,7 @@ export default function App() {
   const [newIncomeCat, setNewIncomeCat] = useState('');
   const [joinFamilyForm, setJoinFamilyForm] = useState({ familyId: '', pin: '' });
   const [showPassword, setShowPassword] = useState(false);
+  const [showPin, setShowPin] = useState(false);
 
   // --- FUNÇÕES DE FORMATAÇÃO (FASE 3) ---
   const formatMonthYear = (date) => date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -129,24 +130,68 @@ export default function App() {
   // ==================================================================================
 
   const handleAuth = async (e) => {
-      e.preventDefault();
-      try {
-          if (authMode === 'login') {
-              await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
-          } else if (authMode === 'register') {
-              const userCred = await createUserWithEmailAndPassword(auth, loginForm.email, loginForm.password);
-              const uid = userCred.user.uid;
-              const newFamilyRef = push(ref(db, 'families'));
-              const familyId = newFamilyRef.key;
-              let nomeFamilia = "Família " + loginForm.name.split(' ')[0];
-              await set(newFamilyRef, { id: familyId, name: nomeFamilia, pin: loginForm.pin, createdBy: uid, members: { [uid]: loginForm.name }, expenseCategories, incomeCategories });
-              await set(ref(db, `users/${uid}`), { name: loginForm.name, email: loginForm.email, familyId: familyId });
-              await updateProfile(userCred.user, { displayName: loginForm.name });
-          }
-      } catch (error) { 
-          alert("Erro: " + error.message); 
-      }
-  };
+    e.preventDefault();
+
+    // Validação simples de preenchimento
+    if (!loginForm.email || !loginForm.password) {
+        alert("Por favor, preencha todos os campos.");
+        return;
+    }
+
+    try {
+        if (authMode === 'login') {
+            // Lógica de Login
+            await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
+        } else if (authMode === 'register') {
+            // 1. Cria o usuário no Firebase Auth
+            const userCred = await createUserWithEmailAndPassword(auth, loginForm.email, loginForm.password);
+            const uid = userCred.user.uid;
+
+            // 2. Prepara a criação da nova família no Realtime Database
+            const familyRef = push(ref(db, 'families'));
+            const familyId = familyRef.key;
+            const firstName = loginForm.name.split(' ')[0];
+            const nomeFamilia = `Família ${firstName}`;
+
+            // 3. Salva os dados da Família
+            await set(familyRef, {
+                id: familyId,
+                name: nomeFamilia,
+                pin: loginForm.pin,
+                createdBy: uid,
+                members: { [uid]: loginForm.name },
+                expenseCategories, // Assume-se que estas variáveis existam no escopo
+                incomeCategories    // Assume-se que estas variáveis existam no escopo
+            });
+
+            // 4. Salva os dados do Usuário (vinculando ao familyId)
+            await set(ref(db, `users/${uid}`), {
+                name: loginForm.name,
+                email: loginForm.email,
+                familyId: familyId,
+                role: 'admin' // Definindo o criador como admin por padrão
+            });
+
+            // 5. Atualiza o perfil do usuário no Auth (displayName)
+            await updateProfile(userCred.user, { displayName: loginForm.name });
+            
+            alert("Conta e Família criadas com sucesso!");
+        }
+    } catch (error) {
+        console.error("Erro na autenticação:", error);
+        
+        // Tratamento de erros amigável
+        let mensagemErro = "Ocorreu um erro inesperado.";
+        if (error.code === 'auth/email-already-in-use') mensagemErro = "Este e-mail já está em uso.";
+        if (error.code === 'auth/weak-password') mensagemErro = "A senha deve ter pelo menos 6 caracteres.";
+        if (error.code === 'auth/invalid-email') mensagemErro = "E-mail inválido.";
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+            mensagemErro = "E-mail ou senha incorretos.";
+        }
+
+        alert(mensagemErro);
+    }
+};
 
   const handleLogout = () => { 
       setLoginForm({ email: '', password: '', name: '', pin: '' });
@@ -233,7 +278,39 @@ export default function App() {
       setGoalForm({ name: '', targetAmount: '', targetDate: '', description: '' });
   };
 
-  const deleteGoal = (id) => { remove(ref(db, `families/${currentUser.familyId}/goals/${id}`)); };
+  const deleteGoal = async (id) => {
+    const metaParaDeletar = goals.find(g => g.id === id);
+    if (!metaParaDeletar) return;
+
+    const saldoExistente = parseFloat(metaParaDeletar.currentAmount || 0);
+
+    if (saldoExistente > 0) {
+      const confirmar = window.confirm(
+        `Esta meta possui R$ ${saldoExistente.toFixed(2)} acumulados. Ao excluir, este valor será transferido para o seu Saldo Livre. Deseja continuar?`
+      );
+      if (confirmar) {
+        // Transfere o saldo para transações antes de deletar
+        const transId = Date.now().toString();
+        await set(ref(db, `families/${currentUser.familyId}/transactions/${transId}`), {
+          id: transId,
+          type: 'receita',
+          description: `Estorno (Exclusão de Meta): ${metaParaDeletar.name}`,
+          amount: saldoExistente.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+          value: saldoExistente,
+          date: new Date().toISOString().split('T')[0],
+          category: 'Estorno',
+          createdBy: currentUser.uid,
+          authorName: currentUser.name
+        });
+        await remove(ref(db, `families/${currentUser.familyId}/goals/${id}`));
+        alert("Meta excluída e saldo transferido para o Saldo Livre.");
+      }
+    } else {
+      if (window.confirm("Tem certeza que deseja excluir esta meta?")) {
+        await remove(ref(db, `families/${currentUser.familyId}/goals/${id}`));
+      }
+    }
+  };
 
   const addInvestment = () => {
     if (!investmentForm.name || !investmentForm.currentAmount) return alert("Preencha o nome e o valor.");
@@ -260,22 +337,80 @@ export default function App() {
 
   const deleteInvestment = (id) => { remove(ref(db, `families/${currentUser.familyId}/investments/${id}`)); };
 
-  const addValueToTarget = (type, id, vStr) => {
+  const addValueToTarget = async (type, id, vStr) => {
       const val = parseFloat(vStr.toString().replace(/\./g, '').replace(',', '.'));
+      if (isNaN(val) || val <= 0) return;
+
       const path = type === 'goal' ? 'goals' : 'investments';
       const list = type === 'goal' ? goals : investments;
       const item = list.find(i => i.id === id);
-      update(ref(db, `families/${currentUser.familyId}/${path}/${id}`), { currentAmount: (item.currentAmount || 0) + val });
+
+      // 1. Aumenta o valor dentro da Meta/Investimento
+      await update(ref(db, `families/${currentUser.familyId}/${path}/${id}`), { 
+        currentAmount: (item.currentAmount || 0) + val 
+      });
+
+      // 2. Registra uma "Saída" no Saldo Livre (Categoria: Aporte)
+      const transId = Date.now().toString();
+      await set(ref(db, `families/${currentUser.familyId}/transactions/${transId}`), {
+        id: transId,
+        type: 'despesa', // Tipo despesa para subtrair do Saldo Livre
+        description: `Aporte: ${item.name}`,
+        amount: val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+        value: val,
+        date: new Date().toISOString().split('T')[0],
+        category: 'Aporte', // Categoria especial para identificarmos depois
+        createdBy: currentUser.uid,
+        authorName: currentUser.name
+      });
   };
 
-  const confirmWithdraw = (e) => {
+  const confirmWithdraw = async (e) => {
       e.preventDefault();
       const val = parseFloat(withdrawForm.amount.toString().replace(/\./g, '').replace(',', '.'));
       const path = withdrawModal.type === 'goal' ? 'goals' : 'investments';
       const list = withdrawModal.type === 'goal' ? goals : investments;
       const item = list.find(i => i.id === withdrawModal.id);
-      update(ref(db, `families/${currentUser.familyId}/${path}/${withdrawModal.id}`), { currentAmount: (item.currentAmount || 0) - val });
+
+      if (!item) return;
+
+      // Verificação de meta não batida ou data antecipada (apenas para metas)
+      if (withdrawModal.type === 'goal') {
+        const hoje = new Date();
+        const dataMeta = new Date(item.targetDate);
+        const metaNaoBatida = val > (item.currentAmount || 0);
+        const dataAntecipada = dataMeta > hoje;
+
+        if (metaNaoBatida || dataAntecipada) {
+          const confirmar = window.confirm(
+            "Atenção: Esta meta ainda não foi atingida ou o prazo de resgate não chegou. Deseja realmente resgatar este valor?"
+          );
+          if (!confirmar) return;
+        }
+      }
+
+      // 1. Atualiza o valor na Meta/Investimento (diminui o saldo lá)
+      await update(ref(db, `families/${currentUser.familyId}/${path}/${withdrawModal.id}`), { 
+        currentAmount: (item.currentAmount || 0) - val 
+      });
+
+      // 2. Cria uma transação automática para o Saldo Livre
+      const transId = Date.now().toString();
+      await set(ref(db, `families/${currentUser.familyId}/transactions/${transId}`), {
+        id: transId,
+        type: 'receita',
+        description: `Resgate: ${item.name}`,
+        amount: val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+        value: val,
+        date: new Date().toISOString().split('T')[0],
+        category: 'Resgate',
+        createdBy: currentUser.uid,
+        authorName: currentUser.name
+      });
+
+      alert(`Sucesso! O valor de R$ ${val.toFixed(2)} já está disponível em seu Saldo Livre.`);
       setWithdrawModal({ show: false });
+      setWithdrawForm({ amount: '', reason: '' });
   };
 
   const handleAddCategory = (type, value) => {
@@ -391,18 +526,67 @@ export default function App() {
       const [y, m] = t.date.split('-');
       return (parseInt(m) - 1) === currentDate.getMonth() && parseInt(y) === currentDate.getFullYear();
     });
-    const inc = currentMonthTrans.filter(t => t.type === 'receita').reduce((acc, c) => acc + Number(c.value), 0);
-    const exp = currentMonthTrans.filter(t => t.type === 'despesa').reduce((acc, c) => acc + Number(c.value), 0);
-    const accBalance = transactions.reduce((acc, c) => c.type === 'receita' ? acc + Number(c.value) : acc - Number(c.value), 0);
+
+    // RECEITA REAL: Ignora o que é apenas dinheiro voltando de metas (Resgate/Estorno)
+    const inc = currentMonthTrans
+      .filter(t => t.type === 'receita' && t.category !== 'Resgate' && t.category !== 'Estorno')
+      .reduce((acc, c) => acc + Number(c.value), 0);
+
+    // DESPESA REAL: Ignora o que é apenas dinheiro indo para metas (Aporte)
+    const exp = currentMonthTrans
+      .filter(t => t.type === 'despesa' && t.category !== 'Aporte')
+      .reduce((acc, c) => acc + Number(c.value), 0);
+
+    // SALDO DISPONÍVEL (LIVRE): Aqui entra a matemática pura de todas as transações
+    const accBalance = transactions.reduce((acc, c) => 
+      c.type === 'receita' ? acc + Number(c.value) : acc - Number(c.value), 0);
+
     const goalsTotal = goals.reduce((acc, c) => acc + (Number(c.currentAmount) || 0), 0);
     const investTotal = investments.reduce((acc, c) => acc + (Number(c.currentAmount) || 0), 0);
-    const expensesByCategory = currentMonthTrans.filter(t => t.type === 'despesa').reduce((acc, curr) => {
+
+    // GRÁFICO DE PIZZA: Mostra apenas gastos de consumo (ignora aportes)
+    const expensesByCategory = currentMonthTrans
+      .filter(t => t.type === 'despesa' && t.category !== 'Aporte')
+      .reduce((acc, curr) => {
         acc[curr.category] = (acc[curr.category] || 0) + Number(curr.value);
         return acc;
-    }, {});
+      }, {});
+
     const pData = Object.keys(expensesByCategory).map(key => ({ name: key, value: expensesByCategory[key] }));
-    const bData = []; // Lógica de histórico omitida por brevidade...
-    return { monthlyIncome: inc, monthlyExpense: exp, monthlyBalance: inc - exp, accumulatedBalance: accBalance, totalGoals: goalsTotal, totalInvestments: investTotal, totalPatrimony: accBalance + goalsTotal + investTotal, pieData: pData, barData: bData };
+
+    // GRÁFICO DE BARRAS (Histórico): Também usa a lógica de Receita/Despesa Real
+    const bData = Array.from({ length: 6 }).map((_, i) => {
+      const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - (5 - i), 1);
+      const monthLabel = d.toLocaleDateString('pt-BR', { month: 'short' });
+      const yearLabel = d.getFullYear();
+      
+      const monthTrans = transactions.filter(t => {
+        if (!t.date) return false;
+        const [y, m] = t.date.split('-');
+        return (parseInt(m) - 1) === d.getMonth() && parseInt(y) === d.getFullYear();
+      });
+
+      const monthInc = monthTrans
+        .filter(t => t.type === 'receita' && t.category !== 'Resgate' && t.category !== 'Estorno')
+        .reduce((acc, c) => acc + Number(c.value), 0);
+      const monthExp = monthTrans
+        .filter(t => t.type === 'despesa' && t.category !== 'Aporte')
+        .reduce((acc, c) => acc + Number(c.value), 0);
+
+      return { name: `${monthLabel}/${yearLabel}`, Receita: monthInc, Despesa: monthExp };
+    });
+
+    return { 
+      monthlyIncome: inc, 
+      monthlyExpense: exp, 
+      monthlyBalance: inc - exp, 
+      accumulatedBalance: accBalance, 
+      totalGoals: goalsTotal, 
+      totalInvestments: investTotal, 
+      totalPatrimony: accBalance + goalsTotal + investTotal, 
+      pieData: pData, 
+      barData: bData 
+    };
   }, [transactions, goals, investments, currentDate]);
 
   const { monthlyIncome, monthlyExpense, monthlyBalance, accumulatedBalance, totalGoals, totalInvestments, totalPatrimony, pieData, barData } = totals;
@@ -411,41 +595,114 @@ export default function App() {
 
   // TELA DE LOGIN (CASO NÃO LOGADO)
   if (!currentUser) return (
-      <div className="min-h-screen bg-blue-900 flex items-center justify-center p-4 text-white">
-          <form onSubmit={handleAuth} className="bg-white p-8 rounded-xl text-gray-800 w-full max-w-sm">
-              <h2 className="text-2xl font-bold mb-4">Acesso Familiar</h2>
-              
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 flex items-center justify-center p-4">
+      <div className="bg-white/95 backdrop-blur-sm p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
+        
+        {/* Cabeçalho */}
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-extrabold text-blue-900 tracking-tight">
+            {authMode === 'login' ? 'Bem-vindo de volta' : 'Criar Conta Familiar'}
+          </h2>
+          <p className="text-slate-500 mt-2">
+            {authMode === 'login' ? 'Acesse suas finanças agora' : 'Comece a organizar sua economia hoje'}
+          </p>
+        </div>
+
+        <form onSubmit={handleAuth} className="space-y-4">
+          
+          {/* Campo E-mail */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+            <input 
+              className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
+              type="email" 
+              placeholder="exemplo@email.com" 
+              value={loginForm.email} 
+              onChange={e => setLoginForm({...loginForm, email: e.target.value})} 
+              required
+            />
+          </div>
+
+          {/* Campo Senha */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
+            <div className="relative">
               <input 
-                className="w-full p-2 border rounded mb-2" 
-                type="email" 
-                placeholder="E-mail" 
-                value={loginForm.email} 
-                onChange={e=>setLoginForm({...loginForm, email:e.target.value})} 
+                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
+                type={showPassword ? "text" : "password"} 
+                placeholder="••••••••" 
+                value={loginForm.password} 
+                onChange={e => setLoginForm({...loginForm, password: e.target.value})} 
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 transition-colors"
+              >
+                {showPassword ? "👁️‍🗨️" : "👁️"}
+              </button>
+            </div>
+          </div>
 
-              <div className="relative mb-4">
+          {/* Campos Extras para Registro */}
+          {authMode === 'register' && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+              <hr className="border-slate-100 my-2" />
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Seu Nome Completo</label>
+                <input 
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
+                  type="text" 
+                  placeholder="Como quer ser chamado?" 
+                  value={loginForm.name} 
+                  onChange={e => setLoginForm({...loginForm, name: e.target.value})} 
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1 text-blue-800">Definir PIN da Família (4 dígitos)</label>
+                <div className="relative">
                   <input 
-                    className="w-full p-2 border rounded pr-10" 
-                    type={showPassword ? "text" : "password"} 
-                    placeholder="Senha" 
-                    value={loginForm.password} 
-                    onChange={e=>setLoginForm({...loginForm, password:e.target.value})} 
+                    className="w-full p-3 border-2 border-blue-100 bg-blue-50/30 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono text-center text-lg tracking-[0.5em]" 
+                    type={showPin ? "text" : "password"} 
+                    maxLength="4"
+                    placeholder="0000" 
+                    value={loginForm.pin} 
+                    onChange={e => setLoginForm({...loginForm, pin: e.target.value})} 
                     required
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 text-xl"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 transition-colors"
                   >
-                    {showPassword ? "👁️‍🗨️" : "👁️"}
+                    {showPin ? "👁️‍🗨️" : "👁️"}
                   </button>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1 italic text-center">* Use este PIN para convidar membros para sua família.</p>
               </div>
+            </div>
+          )}
 
-              <button className="w-full bg-blue-600 text-white p-2 rounded font-bold">Entrar</button>
-              <button type="button" onClick={() => setAuthMode('register')} className="w-full mt-2 text-sm text-blue-600 text-center block">Criar nova conta</button>
-          </form>
+          {/* Botão Principal */}
+          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl font-bold shadow-lg shadow-blue-200 active:scale-[0.98] transition-all mt-6">
+            {authMode === 'login' ? 'Entrar na Conta' : 'Criar Minha Família'}
+          </button>
+
+          {/* Alternar entre Login/Registro */}
+          <button 
+            type="button" 
+            onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} 
+            className="w-full mt-4 text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors text-center block"
+          >
+            {authMode === 'login' ? 'Não tem conta? Cadastre sua família' : 'Já tem uma conta? Faça Login'}
+          </button>
+        </form>
       </div>
+    </div>
   );
 
   return (

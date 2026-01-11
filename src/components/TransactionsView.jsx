@@ -16,28 +16,31 @@ export default function TransactionsView({
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       
-      {/* 1. RESUMO DE SALDOS (BANDEIRA ESCURA) */}
-      <div className="bg-gray-800 text-white rounded-xl shadow-lg grid grid-cols-1 md:grid-cols-2 overflow-hidden min-h-[100px]">
-        <div className="p-4 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-600 bg-gray-900/30">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="bg-green-500/20 p-2 rounded-full"><DollarSign size={20} className="text-green-400" /></div>
-            <p className="text-gray-400 text-xs font-bold uppercase tracking-wider">Disponível (Livre)</p>
+      {/* 1. RESUMO DE SALDOS (ALTURA AJUSTADA PARA 90PX) */}
+      <div className="bg-gray-800 text-white rounded-xl shadow-lg grid grid-cols-1 md:grid-cols-2 overflow-hidden min-h-[90px]">
+        {/* Lado Esquerdo: py-2 e text-2xl para igualar ao Dashboard */}
+        <div className="py-2 px-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-600 bg-gray-900/30">
+          <div className="flex items-center gap-3 mb-0">
+            <div className="bg-green-500/20 p-1 rounded-full"><DollarSign size={18} className="text-green-400" /></div>
+            <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Disponível (Livre)</p>
           </div>
-          <h2 className={`text-3xl font-bold ${accumulatedBalance >= 0 ? 'text-white' : 'text-red-300'}`}>
+          <h2 className={`text-2xl font-bold ${accumulatedBalance >= 0 ? 'text-white' : 'text-red-300'}`}>
             R$ {accumulatedBalance.toFixed(2)}
           </h2>
         </div>
+
+        {/* Lado Direito: Detalhes */}
         <div className="grid grid-cols-3 divide-x divide-gray-600 bg-gray-700/10">
           <div className="flex flex-col items-center justify-center p-2">
-            <span className="text-lg font-bold text-gray-200 block">R$ {totalPatrimony.toFixed(2)}</span>
+            <span className="text-base font-bold text-gray-200 block">R$ {totalPatrimony.toFixed(2)}</span>
             <span className="text-[10px] text-gray-500 uppercase font-bold">Total</span>
           </div>
           <div className="flex flex-col items-center justify-center p-2">
-            <span className="text-lg font-bold text-gray-200 block">R$ {totalGoals.toFixed(2)}</span>
+            <span className="text-base font-bold text-gray-200 block">R$ {totalGoals.toFixed(2)}</span>
             <span className="text-[10px] text-gray-500 uppercase font-bold">Metas</span>
           </div>
           <div className="flex flex-col items-center justify-center p-2">
-            <span className="text-lg font-bold text-gray-200 block">R$ {totalInvestments.toFixed(2)}</span>
+            <span className="text-base font-bold text-gray-200 block">R$ {totalInvestments.toFixed(2)}</span>
             <span className="text-[10px] text-gray-500 uppercase font-bold">Invest.</span>
           </div>
         </div>
@@ -99,12 +102,24 @@ export default function TransactionsView({
                 <p className="text-xs text-gray-500">{t.date.split('-').reverse().join('/')} • {t.category} • <span className="text-indigo-500 font-medium">{t.authorName}</span></p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`font-bold text-sm ${t.type === 'receita' ? 'text-green-600' : (t.category.includes('Investimento') ? 'text-blue-600' : 'text-red-600')}`}>
-                  {t.type === 'receita' ? '+' : '-'} R$ {Number(t.value).toFixed(2)}
-                </span>
-                <button onClick={()=>startEditing(t)} className="text-blue-400 hover:text-blue-600 p-1"><Edit size={14}/></button>
-                <button onClick={()=>removeTransaction(t.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={14}/></button>
-              </div>
+  <span className={`font-bold text-sm ${
+    // 1. Se for uma movimentação interna, fica Azul
+    (['Aporte', 'Resgate', 'Estorno'].includes(t.category)) 
+      ? 'text-blue-600' 
+      : // 2. Se for receita real, fica Verde
+        t.type === 'receita' 
+          ? 'text-green-600' 
+          : // 3. Se for despesa real, fica Vermelho
+            'text-red-600'
+  }`}>
+    {/* Sinal de + ou - conforme o tipo, mas com cor neutra se for interno */}
+    {t.type === 'receita' ? '+' : '-'} R$ {Number(t.value).toFixed(2)}
+  </span>
+  
+  {/* Botões de ação (Edição e Exclusão) - Mantenha como estão */}
+  <button onClick={()=>startEditing(t)} className="text-blue-400 hover:text-blue-600 p-1"><Edit size={14}/></button>
+  <button onClick={()=>removeTransaction(t.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={14}/></button>
+</div>
             </div>
           ))}
           {transactions.length === 0 && <div className="text-center text-gray-400 py-10 flex flex-col items-center"><List size={40} className="mb-2 opacity-20"/><p>Nenhum lançamento.</p></div>}
