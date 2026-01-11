@@ -59,6 +59,7 @@ export default function App() {
   const [newExpenseCat, setNewExpenseCat] = useState('');
   const [newIncomeCat, setNewIncomeCat] = useState('');
   const [joinFamilyForm, setJoinFamilyForm] = useState({ familyId: '', pin: '' });
+  const [showPassword, setShowPassword] = useState(false);
 
   // --- FUNÇÕES DE FORMATAÇÃO (FASE 3) ---
   const formatMonthYear = (date) => date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -413,10 +414,36 @@ export default function App() {
       <div className="min-h-screen bg-blue-900 flex items-center justify-center p-4 text-white">
           <form onSubmit={handleAuth} className="bg-white p-8 rounded-xl text-gray-800 w-full max-w-sm">
               <h2 className="text-2xl font-bold mb-4">Acesso Familiar</h2>
-              <input className="w-full p-2 border rounded mb-2" type="email" placeholder="E-mail" value={loginForm.email} onChange={e=>setLoginForm({...loginForm, email:e.target.value})} />
-              <input className="w-full p-2 border rounded mb-4" type="password" placeholder="Senha" value={loginForm.password} onChange={e=>setLoginForm({...loginForm, password:e.target.value})} />
+              
+              <input 
+                className="w-full p-2 border rounded mb-2" 
+                type="email" 
+                placeholder="E-mail" 
+                value={loginForm.email} 
+                onChange={e=>setLoginForm({...loginForm, email:e.target.value})} 
+                required
+              />
+
+              <div className="relative mb-4">
+                  <input 
+                    className="w-full p-2 border rounded pr-10" 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="Senha" 
+                    value={loginForm.password} 
+                    onChange={e=>setLoginForm({...loginForm, password:e.target.value})} 
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 text-xl"
+                  >
+                    {showPassword ? "👁️‍🗨️" : "👁️"}
+                  </button>
+              </div>
+
               <button className="w-full bg-blue-600 text-white p-2 rounded font-bold">Entrar</button>
-              <button type="button" onClick={() => setAuthMode('register')} className="w-full mt-2 text-sm text-blue-600">Criar nova conta</button>
+              <button type="button" onClick={() => setAuthMode('register')} className="w-full mt-2 text-sm text-blue-600 text-center block">Criar nova conta</button>
           </form>
       </div>
   );
