@@ -55,7 +55,7 @@ export default function App() {
   const [incomeForm, setIncomeForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '' });
   const [expenseForm, setExpenseForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '', paymentMethod: 'Cartão de Crédito', installments: '1' });
   const [goalForm, setGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', description: '' });
-  const [investmentForm, setInvestmentForm] = useState({ name: '', type: 'Renda Fixa', currentAmount: '' });
+  const [investmentForm, setInvestmentForm] = useState({ name: '', initialAmount: '' });
   const [newExpenseCat, setNewExpenseCat] = useState('');
   const [newIncomeCat, setNewIncomeCat] = useState('');
   const [joinFamilyForm, setJoinFamilyForm] = useState({ familyId: '', pin: '' });
@@ -327,23 +327,44 @@ export default function App() {
   };
 
   const addInvestment = async () => {
-    // TRAVA DE SEGURANÇA
-    if (!investmentForm.name || !investmentForm.targetAmount || !investmentForm.targetDate) {
-      alert("⚠️ Por favor, preencha todos os campos do investimento!");
+    // 1. Limpamos a máscara para calcular (Ex: "1.000,00" vira 1000)
+    const initialVal = parseFloat(investmentForm.initialAmount?.toString().replace(/\./g, '').replace(',', '.') || 0);
+
+    // 2. Trava de segurança atualizada: não precisamos mais de data ou meta
+    if (!investmentForm.name || initialVal <= 0) {
+      alert("⚠️ Informe o nome do ativo e o valor que está investindo hoje!");
       return;
     }
 
     const id = Date.now().toString();
+    
+    // 3. O investimento já nasce com o dinheiro dentro (currentAmount)
     const newInv = {
-      ...investmentForm,
       id,
-      currentAmount: 0,
+      name: investmentForm.name,
+      currentAmount: initialVal,
       createdAt: new Date().toISOString()
     };
     
     await set(ref(db, `families/${currentUser.familyId}/investments/${id}`), newInv);
-    setInvestmentForm({ name: '', targetAmount: '', targetDate: '' });
-    alert("💰 Investimento registrado!");
+
+    // 4. Geramos a saída automática do Saldo Livre (Aporte)
+    const transId = (Date.now() + 1).toString();
+    await set(ref(db, `families/${currentUser.familyId}/transactions/${transId}`), {
+      id: transId,
+      type: 'despesa',
+      description: `Aporte Inicial: ${investmentForm.name}`,
+      amount: investmentForm.initialAmount, 
+      value: initialVal,
+      date: new Date().toISOString().split('T')[0],
+      category: 'Aporte',
+      createdBy: currentUser.uid,
+      authorName: currentUser.name
+    });
+
+    // 5. Limpa os campos
+    setInvestmentForm({ name: '', initialAmount: '' });
+    alert("💰 Investimento registrado e saldo atualizado!");
   };
 
   const deleteInvestment = async (id) => {
