@@ -70,7 +70,7 @@ export default function InvestmentsView({
             {/* AÇÕES */}
             <div className="pt-3 mt-4 border-t border-gray-50 space-y-1.5">
               <div className="grid grid-cols-2 gap-1.5">
-                <button onClick={()=>addValueToTarget('investment', inv.id, prompt('Valor do aporte:'))} className="flex items-center justify-center gap-1 text-[10px] bg-green-50 text-green-700 py-2 rounded-md font-bold border border-green-100">
+                <button onClick={()=>addValueToTarget('investment', inv.id)} className="flex items-center justify-center gap-1 text-[10px] bg-green-50 text-green-700 py-2 rounded-md font-bold border border-green-100">
                   <DollarSign size={12}/> Aportar
                 </button>
                 <button onClick={()=>setWithdrawModal({show:true, type:'investment', id:inv.id, name:inv.name})} className="flex items-center justify-center gap-1 text-[10px] bg-indigo-50 text-indigo-700 py-2 rounded-md font-bold border border-indigo-100">

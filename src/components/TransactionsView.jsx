@@ -1,4 +1,4 @@
-// --- COMPONENTE: TELA DE LANÇAMENTOS (FORMULÁRIOS E EXTRATO) ---
+// --- COMPONENTE: TELA DE LANÇAMENTOS (COM MÁSCARA DE MOEDA) ---
 import React from 'react';
 import { DollarSign, List, Edit, Trash2 } from 'lucide-react';
 import SummaryCards from './SummaryCards';
@@ -11,7 +11,8 @@ export default function TransactionsView({
   expenseForm, setExpenseForm,
   addTransaction, startEditing, removeTransaction,
   incomeCategories, expenseCategories,
-  transactions, currentDate, formatMonthYear, currentUser
+  transactions, currentDate, formatMonthYear, currentUser,
+  handleCurrencyChange // <--- 1. RECEBENDO A FUNÇÃO AQUI
 }) {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -44,10 +45,10 @@ export default function TransactionsView({
         </div>
       </div>
 
-      {/* 2. CARDS MENSAIS (ENTROU / SAIU / BALANÇO) */}
+      {/* 2. CARDS MENSAIS */}
       <SummaryCards income={monthlyIncome} expense={monthlyExpense} balance={monthlyBalance} />
 
-      {/* 3. ÁREA OPERACIONAL (FORMULÁRIOS E EXTRATO) */}
+      {/* 3. ÁREA OPERACIONAL */}
       <div className="flex flex-col gap-4">
         
         {/* FORMULÁRIOS COMPACTOS */}
@@ -57,7 +58,16 @@ export default function TransactionsView({
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
               <div className="md:col-span-1 text-[10px] font-extrabold text-green-600 uppercase text-center">Receita</div>
               <input className="md:col-span-3 p-2 text-sm border rounded-lg bg-gray-50 outline-none focus:border-green-400" placeholder="Descrição" value={incomeForm.description} onChange={e=>setIncomeForm({...incomeForm, description:e.target.value})}/>
-              <input className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 outline-none focus:border-green-400" type="number" placeholder="R$ Valor" value={incomeForm.amount} onChange={e=>setIncomeForm({...incomeForm, amount:e.target.value})}/>
+              
+              {/* --- ALTERAÇÃO 2: CAMPO DE VALOR RECEITA --- */}
+              <input 
+                className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 outline-none focus:border-green-400" 
+                type="text" // Mudado de number para text
+                placeholder="R$ 0,00" 
+                value={incomeForm.amount} 
+                onChange={(e) => handleCurrencyChange(e, setIncomeForm, incomeForm, 'amount')} // Usando a formatação
+              />
+
               <select className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 outline-none focus:border-green-400" value={incomeForm.category} onChange={e=>setIncomeForm({...incomeForm, category:e.target.value})}>
                 {incomeCategories.map(c=><option key={c} value={c}>{c}</option>)}
               </select>
@@ -74,7 +84,16 @@ export default function TransactionsView({
               <div className="md:col-span-1 text-[10px] font-extrabold text-red-600 uppercase text-center">Despesa</div>
               <input className="md:col-span-3 p-2 text-sm border rounded-lg bg-gray-50 outline-none focus:border-red-400" placeholder="Descrição" value={expenseForm.description} onChange={e=>setExpenseForm({...expenseForm, description:e.target.value})}/>
               <div className="md:col-span-2 flex gap-1">
-                <input className="w-full p-2 text-sm border rounded-lg bg-gray-50 outline-none focus:border-red-400" type="number" placeholder="R$" value={expenseForm.amount} onChange={e=>setExpenseForm({...expenseForm, amount:e.target.value})}/>
+                
+                {/* --- ALTERAÇÃO 3: CAMPO DE VALOR DESPESA --- */}
+                <input 
+                  className="w-full p-2 text-sm border rounded-lg bg-gray-50 outline-none focus:border-red-400" 
+                  type="text" // Mudado de number para text
+                  placeholder="R$ 0,00" 
+                  value={expenseForm.amount} 
+                  onChange={(e) => handleCurrencyChange(e, setExpenseForm, expenseForm, 'amount')} // Usando a formatação
+                />
+                
                 <input disabled={!!editingId} className="w-10 p-2 text-xs border rounded-lg bg-gray-50 text-center" title="Parcelas" type="number" value={expenseForm.installments} onChange={e=>setExpenseForm({...expenseForm, installments:e.target.value})}/>
               </div>
               <select className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 outline-none focus:border-red-400" value={expenseForm.category} onChange={e=>setExpenseForm({...expenseForm, category:e.target.value})}>

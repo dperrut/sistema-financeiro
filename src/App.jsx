@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  ChevronLeft, ChevronRight, Calendar
+  ChevronLeft, ChevronRight, Calendar, ArrowUpCircle, ArrowDownCircle 
 } from 'lucide-react';
 
 // --- IMPORTAÇÃO DE COMPONENTES CUSTOMIZADOS (CRIADOS NA FASE 2) ---
@@ -49,6 +49,30 @@ export default function App() {
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
+  };
+  // --- NOVO SISTEMA DE MODAL UNIFICADO ---
+  const [transactionModal, setTransactionModal] = useState({ 
+    show: false, action: '', type: '', id: null, name: '' 
+  });
+  const [transactionForm, setTransactionForm] = useState({ amount: '' });
+  // --- LÓGICA DO MODO ESCURO (DARK MODE) ---
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Efeito que aplica a classe 'dark' no HTML do site
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  const toggleTheme = () => setDarkMode(!darkMode);
+  
+  // Função auxiliar para abrir o modal (usada pelos filhos)
+  const handleOpenTransactionModal = (action, type, id, name) => {
+    setTransactionForm({ amount: '' });
+    setTransactionModal({ show: true, action, type, id, name });
   };
   const [withdrawModal, setWithdrawModal] = useState({ show: false, type: '', id: null, name: '' });
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', reason: '' });
@@ -280,8 +304,10 @@ export default function App() {
     }
 
     const id = Date.now().toString();
+    const cleanAmount = parseFloat(goalForm.targetAmount.toString().replace(/\./g, '').replace(',', '.') || 0);
     const newGoal = {
       ...goalForm,
+      targetAmount: cleanAmount,
       id,
       currentAmount: 0,
       createdAt: new Date().toISOString()
@@ -428,52 +454,72 @@ export default function App() {
       });
   };
 
-  const confirmWithdraw = async (e) => {
-      e.preventDefault();
-      const val = parseFloat(withdrawForm.amount.toString().replace(/\./g, '').replace(',', '.'));
-      const path = withdrawModal.type === 'goal' ? 'goals' : 'investments';
-      const list = withdrawModal.type === 'goal' ? goals : investments;
-      const item = list.find(i => i.id === withdrawModal.id);
+  // --- NOVA FUNÇÃO CENTRALIZADA (APORTE E RESGATE) ---
+  const handleConfirmTransaction = async (e) => {
+    e.preventDefault();
+    const val = parseFloat(transactionForm.amount.toString().replace(/\./g, '').replace(',', '.'));
+    if (isNaN(val) || val <= 0) return;
 
-      if (!item) return;
+    const { action, type, id, name } = transactionModal;
+    const path = type === 'goal' ? 'goals' : 'investments';
+    const list = type === 'goal' ? goals : investments;
+    const item = list.find(i => i.id === id);
 
-      // Verificação de meta não batida ou data antecipada (apenas para metas)
-      if (withdrawModal.type === 'goal') {
-        const hoje = new Date();
-        const dataMeta = new Date(item.targetDate);
-        const metaNaoBatida = val > (item.currentAmount || 0);
-        const dataAntecipada = dataMeta > hoje;
+    if (!item) return;
 
-        if (metaNaoBatida || dataAntecipada) {
-          const confirmar = window.confirm(
-            "Atenção: Esta meta ainda não foi atingida ou o prazo de resgate não chegou. Deseja realmente resgatar este valor?"
-          );
-          if (!confirmar) return;
-        }
+    // LÓGICA DE RESGATE (WITHDRAW)
+    if (action === 'withdraw') {
+      const hoje = new Date();
+      const dataMeta = item.targetDate ? new Date(item.targetDate) : null;
+      const metaNaoBatida = type === 'goal' && val > (item.currentAmount || 0);
+      const dataAntecipada = type === 'goal' && dataMeta && dataMeta > hoje;
+
+      if (metaNaoBatida || dataAntecipada) {
+        if(!window.confirm("Atenção: Meta não atingida ou prazo não chegou. Resgatar mesmo assim?")) return;
       }
+      if (val > (item.currentAmount || 0)) return alert("Saldo insuficiente.");
 
-      // 1. Atualiza o valor na Meta/Investimento (diminui o saldo lá)
-      await update(ref(db, `families/${currentUser.familyId}/${path}/${withdrawModal.id}`), { 
+      await update(ref(db, `families/${currentUser.familyId}/${path}/${id}`), { 
         currentAmount: (item.currentAmount || 0) - val 
       });
 
-      // 2. Cria uma transação automática para o Saldo Livre
       const transId = Date.now().toString();
       await set(ref(db, `families/${currentUser.familyId}/transactions/${transId}`), {
         id: transId,
         type: 'receita',
-        description: `Resgate: ${item.name}`,
-        amount: val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+        description: `Resgate: ${name}`,
+        amount: transactionForm.amount,
         value: val,
         date: new Date().toISOString().split('T')[0],
         category: 'Resgate',
         createdBy: currentUser.uid,
         authorName: currentUser.name
       });
+      showToast(`Resgate de R$ ${val.toFixed(2)} realizado!`, "success");
+    } 
+    
+    // LÓGICA DE APORTE (DEPOSIT)
+    else if (action === 'deposit') {
+      await update(ref(db, `families/${currentUser.familyId}/${path}/${id}`), { 
+        currentAmount: (item.currentAmount || 0) + val 
+      });
 
-      alert(`Sucesso! O valor de R$ ${val.toFixed(2)} já está disponível em seu Saldo Livre.`);
-      setWithdrawModal({ show: false });
-      setWithdrawForm({ amount: '', reason: '' });
+      const transId = Date.now().toString();
+      await set(ref(db, `families/${currentUser.familyId}/transactions/${transId}`), {
+        id: transId,
+        type: 'despesa',
+        description: `Aporte: ${name}`,
+        amount: transactionForm.amount,
+        value: val,
+        date: new Date().toISOString().split('T')[0],
+        category: 'Aporte',
+        createdBy: currentUser.uid,
+        authorName: currentUser.name
+      });
+      showToast(`Aporte de R$ ${val.toFixed(2)} realizado!`, "success");
+    }
+    setTransactionModal({ show: false, action: '', type: '', id: null, name: '' });
+    setTransactionForm({ amount: '' });
   };
 
   const handleAddCategory = (type, value) => {
@@ -769,11 +815,17 @@ export default function App() {
   );
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className={`flex h-screen overflow-hidden transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} handleLogout={handleLogout} familyName={familyName} />
         
         <main className="flex-1 flex flex-col h-screen overflow-hidden relative w-full">
-            <Header activeTab={activeTab} familyName={familyName} currentUser={currentUser} />
+            <Header 
+                activeTab={activeTab} 
+                familyName={familyName} 
+                currentUser={currentUser} 
+                darkMode={darkMode}       // Informa se está escuro
+                toggleTheme={toggleTheme} // Entrega o interruptor
+            />
 
             {(activeTab === 'dashboard' || activeTab === 'transactions') && (
                 <div className="bg-white border-b px-4 py-2 flex justify-between items-center shadow-sm">
@@ -783,7 +835,7 @@ export default function App() {
                 </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-50">
+            <div className={`flex-1 overflow-y-auto p-4 md:p-8 transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
                 {activeTab === 'dashboard' && (
                     <DashboardView totalPatrimony={totalPatrimony} accumulatedBalance={accumulatedBalance} totalGoals={totalGoals} totalInvestments={totalInvestments} monthlyIncome={monthlyIncome} monthlyExpense={monthlyExpense} monthlyBalance={monthlyBalance} pieData={pieData} barData={barData} COLORS={COLORS} />
                 )}
@@ -818,27 +870,24 @@ export default function App() {
 
             {activeTab === 'goals' && (
                 <GoalsView 
-                    goalForm={goalForm}
-                    setGoalForm={setGoalForm}
-                    addGoal={addGoal}
-                    goals={goals}
-                    addValueToTarget={addValueToTarget}
-                    deleteGoal={deleteGoal}
-                    setWithdrawModal={setWithdrawModal}
-                    handleCurrencyChange={handleCurrencyChange} // <--- LINHA ADICIONADA
+                    goalForm={goalForm} setGoalForm={setGoalForm} addGoal={addGoal} goals={goals} 
+                    // MUDANÇA AQUI: Agora chama a função que abre o Modal de Depósito
+                    addValueToTarget={(type, id) => handleOpenTransactionModal('deposit', type, id, goals.find(g=>g.id===id)?.name)} 
+                    deleteGoal={deleteGoal} 
+                    // MUDANÇA AQUI: Agora chama a função que abre o Modal de Resgate
+                    setWithdrawModal={({show, type, id, name}) => handleOpenTransactionModal('withdraw', type, id, name)} 
+                    handleCurrencyChange={handleCurrencyChange}
                 />
             )}
 
             {activeTab === 'investments' && (
                 <InvestmentsView 
-                    investmentForm={investmentForm}
-                    setInvestmentForm={setInvestmentForm}
-                    addInvestment={addInvestment}
-                    investments={investments}
-                    addValueToTarget={addValueToTarget}
-                    deleteInvestment={deleteInvestment}
-                    setWithdrawModal={setWithdrawModal}
-                    handleCurrencyChange={handleCurrencyChange} // <--- LINHA ADICIONADA
+                    investmentForm={investmentForm} setInvestmentForm={setInvestmentForm} addInvestment={addInvestment} investments={investments} 
+                    // MUDANÇA AQUI: Mesmo ajuste para investimentos
+                    addValueToTarget={(type, id) => handleOpenTransactionModal('deposit', type, id, investments.find(i=>i.id===id)?.name)} 
+                    deleteInvestment={deleteInvestment} 
+                    setWithdrawModal={({show, type, id, name}) => handleOpenTransactionModal('withdraw', type, id, name)} 
+                    handleCurrencyChange={handleCurrencyChange}
                 />
             )}
 
@@ -867,13 +916,43 @@ export default function App() {
                     />
                 )}
 
-                {withdrawModal.show && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white p-6 rounded-2xl w-full max-w-sm">
-                            <h3 className="font-bold text-red-600 mb-4">Resgatar de {withdrawModal.name}</h3>
-                            <form onSubmit={confirmWithdraw}>
-                                <input type="number" step="0.01" className="w-full p-3 border rounded mb-4" placeholder="Valor" value={withdrawForm.amount} onChange={e => setWithdrawForm({...withdrawForm, amount: e.target.value})} autoFocus />
-                                <div className="flex justify-end gap-2"><button type="button" onClick={() => setWithdrawModal({ show: false })} className="px-4 py-2 bg-gray-200 rounded font-bold">Cancelar</button><button className="px-4 py-2 bg-red-600 text-white rounded font-bold">Confirmar</button></div>
+                {/* --- O NOVO MODAL UNIFICADO E FORMATADO --- */}
+                {transactionModal.show && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
+                            
+                            <div className="flex justify-between items-start mb-4">
+                              <h3 className={`font-bold text-lg flex items-center gap-2 ${transactionModal.action === 'withdraw' ? 'text-red-600' : 'text-green-600'}`}>
+                                {transactionModal.action === 'withdraw' ? <ArrowDownCircle size={24}/> : <ArrowUpCircle size={24}/>}
+                                {transactionModal.action === 'withdraw' ? 'Resgatar Valor' : 'Novo Aporte'}
+                              </h3>
+                              <button onClick={() => setTransactionModal({ ...transactionModal, show: false })} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
+                            </div>
+
+                            <p className="text-gray-600 text-sm mb-4">
+                              {transactionModal.action === 'withdraw' ? 'Retirar dinheiro de:' : 'Adicionar dinheiro em:'} <br/>
+                              <span className="font-bold text-gray-800 text-base">{transactionModal.name}</span>
+                            </p>
+
+                            <form onSubmit={handleConfirmTransaction}>
+                                <div className="mb-6">
+                                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Valor da Transação</label>
+                                  <input 
+                                    type="text" 
+                                    className={`w-full p-3 border-2 rounded-xl text-xl font-bold outline-none focus:ring-4 transition-all ${transactionModal.action === 'withdraw' ? 'border-red-100 text-red-700 focus:border-red-500 focus:ring-red-500/20' : 'border-green-100 text-green-700 focus:border-green-500 focus:ring-green-500/20'}`} 
+                                    placeholder="R$ 0,00" 
+                                    value={transactionForm.amount} 
+                                    onChange={e => handleCurrencyChange(e, setTransactionForm, transactionForm, 'amount')} 
+                                    autoFocus 
+                                  />
+                                </div>
+                                
+                                <div className="flex justify-end gap-3">
+                                  <button type="button" onClick={() => setTransactionModal({ ...transactionModal, show: false })} className="px-4 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors">Cancelar</button>
+                                  <button className={`px-6 py-3 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95 ${transactionModal.action === 'withdraw' ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'}`}>
+                                    Confirmar
+                                  </button>
+                                </div>
                             </form>
                         </div>
                     </div>

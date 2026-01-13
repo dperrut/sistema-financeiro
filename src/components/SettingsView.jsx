@@ -1,4 +1,4 @@
-// --- COMPONENTE: TELA DE CONFIGURAÇÕES (VERSÃO FINAL FASE 2) ---
+// --- COMPONENTE: TELA DE CONFIGURAÇÕES (VERSÃO COMPACTA) ---
 import React from 'react';
 import { Users, Eye, Edit, LogIn, List, XCircle, Upload, AlertTriangle, Trash2 } from 'lucide-react';
 
@@ -7,17 +7,21 @@ export default function SettingsView({
   joinFamilyForm, setJoinFamilyForm, handleJoinFamily,
   newIncomeCat, setNewIncomeCat, handleAddCategory, incomeCategories, handleRemoveCategory,
   newExpenseCat, setNewExpenseCat, expenseCategories,
-  importDataToFirebase, resetAllData, handleExportData // <--- Função incluída aqui
+  importDataToFirebase, resetAllData, handleExportData
 }) {
   return (
-    <div className="max-w-6xl mx-auto space-y-4 pb-10">
+    // REDUZIDO: space-y-4 -> space-y-3 e pb-10 -> pb-4
+    <div className="max-w-6xl mx-auto space-y-3 pb-4">
       
       {/* 1. SEÇÃO DE GESTÃO DE FAMÍLIA */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* REDUZIDO: gap-4 -> gap-3 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         
         {/* CARD: SUA FAMÍLIA ATUAL */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-indigo-50 flex flex-col justify-between">
-          <div className="flex items-center gap-3 mb-4">
+        {/* REDUZIDO: p-4 -> p-3 */}
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-indigo-50 flex flex-col justify-between">
+          {/* REDUZIDO: mb-4 -> mb-2 */}
+          <div className="flex items-center gap-3 mb-2">
             <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600"><Users size={20}/></div>
             <div>
               <h3 className="font-bold text-gray-800 text-sm">Sua Família</h3>
@@ -42,8 +46,10 @@ export default function SettingsView({
         </div>
 
         {/* CARD: CONECTAR A OUTRA FAMÍLIA */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
-          <div className="flex items-center gap-3 mb-3">
+        {/* REDUZIDO: p-4 -> p-3 */}
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
+          {/* REDUZIDO: mb-3 -> mb-2 */}
+          <div className="flex items-center gap-3 mb-2">
             <div className="bg-blue-50 p-2 rounded-lg text-blue-600"><LogIn size={20}/></div>
             <h3 className="font-bold text-gray-800 text-sm">Trocar de Família</h3>
           </div>
@@ -71,14 +77,18 @@ export default function SettingsView({
       </div>
 
       {/* 2. GESTÃO DE CATEGORIAS */}
-      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-2 text-sm">
+      {/* REDUZIDO: p-5 -> p-3 */}
+      <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
+        {/* REDUZIDO: mb-4 -> mb-2 */}
+        <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2 border-b pb-2 text-sm">
           <List size={18} className="text-gray-500"/> Personalizar Categorias
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* REDUZIDO: gap-6 -> gap-3 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <h4 className="font-bold text-green-700 mb-2 text-[11px] uppercase tracking-widest">Receitas</h4>
-            <div className="flex gap-2 mb-3">
+            {/* REDUZIDO: mb-3 -> mb-2 */}
+            <div className="flex gap-2 mb-2">
               <input className="flex-1 p-2 border rounded-lg text-xs bg-gray-50 outline-none" placeholder="Nova..." value={newIncomeCat} onChange={e => setNewIncomeCat(e.target.value)} />
               <button onClick={() => handleAddCategory('income', newIncomeCat)} className="bg-green-600 text-white px-3 rounded-lg font-bold">+</button>
             </div>
@@ -93,7 +103,8 @@ export default function SettingsView({
           </div>
           <div>
             <h4 className="font-bold text-red-700 mb-2 text-[11px] uppercase tracking-widest">Despesas</h4>
-            <div className="flex gap-2 mb-3">
+            {/* REDUZIDO: mb-3 -> mb-2 */}
+            <div className="flex gap-2 mb-2">
               <input className="flex-1 p-2 border rounded-lg text-xs bg-gray-50 outline-none" placeholder="Nova..." value={newExpenseCat} onChange={e => setNewExpenseCat(e.target.value)} />
               <button onClick={() => handleAddCategory('expense', newExpenseCat)} className="bg-red-600 text-white px-3 rounded-lg font-bold">+</button>
             </div>
@@ -110,26 +121,29 @@ export default function SettingsView({
       </div>
 
       {/* 3. MANUTENÇÃO (BACKUP E SEGURANÇA) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-70 hover:opacity-100 transition-opacity">
-        <div className="bg-gray-50 p-4 rounded-xl border border-dashed border-gray-300 flex flex-col gap-3">
+      {/* REDUZIDO: gap-4 -> gap-3 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 opacity-70 hover:opacity-100 transition-opacity">
+        {/* REDUZIDO: p-4 -> p-3 */}
+        <div className="bg-gray-50 p-3 rounded-xl border border-dashed border-gray-300 flex flex-col gap-2">
           <div className="flex justify-between items-center">
             <h4 className="text-xs font-bold text-gray-600 uppercase tracking-widest">Backup de Segurança</h4>
             <span className="text-[9px] bg-gray-200 px-2 py-0.5 rounded text-gray-500 font-bold">JSON</span>
           </div>
           <div className="flex gap-2">
             <button onClick={handleExportData} className="flex-1 bg-white text-blue-600 px-3 py-2 rounded-lg font-bold text-[10px] border border-blue-100 shadow-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
-              <Upload size={14} className="rotate-180"/> Exportar Dados
+              <Upload size={14} className="rotate-180"/> Exportar
             </button>
             <label className="flex-1 bg-white text-orange-600 px-3 py-2 rounded-lg cursor-pointer font-bold text-[10px] border border-orange-100 shadow-sm hover:bg-orange-50 transition-colors flex items-center justify-center gap-2">
-              <Upload size={14}/> Importar Dados
+              <Upload size={14}/> Importar
               <input type="file" accept=".json" onChange={importDataToFirebase} className="hidden" />
             </label>
           </div>
         </div>
-        <div className="bg-red-50 p-4 rounded-xl border border-dashed border-red-200 flex items-center justify-between">
+        {/* REDUZIDO: p-4 -> p-3 */}
+        <div className="bg-red-50 p-3 rounded-xl border border-dashed border-red-200 flex items-center justify-between">
           <div>
             <h4 className="text-xs font-bold text-red-700 flex items-center gap-1"><AlertTriangle size={12}/> Zona Crítica</h4>
-            <p className="text-[10px] text-red-400 font-medium">Apagar permanentemente</p>
+            <p className="text-[10px] text-red-400 font-medium">Apagar tudo</p>
           </div>
           <button onClick={resetAllData} className="text-red-600 font-bold text-[10px] bg-white px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-600 hover:text-white transition-all shadow-sm">
             Resetar App

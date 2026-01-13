@@ -1,7 +1,8 @@
 // --- COMPONENTE: CABEÇALHO (TOPO COM NOME DA TELA E PERFIL) ---
 import React from 'react';
+import { Moon, Sun } from 'lucide-react';
 
-export default function Header({ activeTab, familyName, currentUser }) {
+export default function Header({ activeTab, familyName, currentUser, darkMode, toggleTheme }) {
   // Função auxiliar para definir o título amigável da tela
   const getTitle = () => {
     const titles = {
@@ -15,14 +16,24 @@ export default function Header({ activeTab, familyName, currentUser }) {
   };
 
   return (
-    <header className="bg-white shadow-sm px-4 py-3 md:px-8 md:py-4 flex justify-between items-center z-10 sticky top-0">
+    <header className={`px-4 py-3 md:px-8 md:py-4 flex justify-between items-center z-10 sticky top-0 shadow-sm transition-colors duration-300 ${darkMode ? 'bg-gray-900 border-b border-gray-800' : 'bg-white'}`}>
       <div>
-        <h2 className="text-lg font-bold text-gray-800">{getTitle()}</h2>
+        <h2 className={`text-lg font-bold ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>{getTitle()}</h2>
         <p className="text-xs text-gray-400 md:hidden">{familyName}</p>
       </div>
       <div className="flex items-center gap-3">
+        
+        {/* --- NOVO BOTÃO DE MODO ESCURO --- */}
+        <button 
+          onClick={toggleTheme} 
+          title={darkMode ? "Desativar modo escuro" : "Ativar modo escuro"}
+          className={`p-2 rounded-full transition-all ${darkMode ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700' : 'bg-gray-100 text-slate-600 hover:bg-gray-200'}`}
+        >
+          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+
         <div className="text-right hidden md:block">
-          <p className="text-sm font-bold text-gray-700">{currentUser?.name}</p>
+          <p className={`text-sm font-bold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{currentUser?.name}</p>
           <p className="text-xs text-blue-500 font-bold uppercase">{familyName}</p>
         </div>
         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold border-2 border-white shadow-sm">

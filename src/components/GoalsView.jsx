@@ -4,7 +4,8 @@ import { Target, DollarSign, Upload, Trash2, Calendar } from 'lucide-react';
 
 export default function GoalsView({ 
   goalForm, setGoalForm, addGoal, goals, 
-  addValueToTarget, deleteGoal, setWithdrawModal 
+  addValueToTarget, deleteGoal, setWithdrawModal,
+  handleCurrencyChange // <--- Faltava essa vírgula e esse nome aqui!
 }) {
 
   // --- FUNÇÃO DE MESTRE: CALCULA QUANTO POUPAR POR MÊS ---
@@ -22,7 +23,8 @@ export default function GoalsView({
     // Se a meta for para o mês atual, consideramos 1 mês para não dividir por zero
     if (mesesRestantes <= 0) mesesRestantes = 1;
 
-    const valorRestante = targetAmount - currentAmount;
+    const targetClean = typeof targetAmount === 'string' ? parseFloat(targetAmount.replace(/\./g, '').replace(',', '.') || 0) : targetAmount;
+    const valorRestante = targetClean - currentAmount;
     
     if (valorRestante <= 0) return 0; // Meta já atingida
 
@@ -50,11 +52,11 @@ export default function GoalsView({
           {/* Valor */}
           <div className="md:col-span-3">
             <input 
-              type="number" 
+              type="text" // <--- MUDANÇA AQUI
               className="w-full p-2 text-sm border border-gray-200 rounded-lg bg-gray-50 outline-none focus:border-purple-400" 
               placeholder="Quanto precisa? (R$)" 
               value={goalForm.targetAmount} 
-              onChange={e=>setGoalForm({...goalForm, targetAmount:e.target.value})}
+              onChange={e => handleCurrencyChange(e, setGoalForm, goalForm, 'targetAmount')} // <--- MUDANÇA AQUI
             />
           </div>
           {/* Campo de Data com Rótulo Explicativo */}
@@ -82,7 +84,8 @@ export default function GoalsView({
       {/* LISTA DE CARDS DE METAS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         {goals.map(g => {
-          const percent = g.targetAmount > 0 ? Math.min((g.currentAmount / g.targetAmount) * 100, 100) : 0;
+          const targetClean = typeof g.targetAmount === 'string' ? parseFloat(g.targetAmount.replace(/\./g, '').replace(',', '.') || 0) : g.targetAmount;
+          const percent = targetClean > 0 ? Math.min((g.currentAmount / targetClean) * 100, 100) : 0;
           const mensalSugestao = calculateMonthlySuggested(g.targetAmount, g.currentAmount, g.targetDate);
 
           return (
@@ -135,7 +138,7 @@ export default function GoalsView({
               {/* Botões de Ação */}
               <div className="pt-3 mt-3 border-t border-gray-50 space-y-1.5">
                 <div className="grid grid-cols-2 gap-1.5">
-                  <button onClick={()=>addValueToTarget('goal', g.id, prompt('Valor para investir:'))} className="flex items-center justify-center gap-1 text-[10px] bg-green-50 text-green-700 py-1.5 rounded-md font-bold border border-green-100 hover:bg-green-100 transition-colors">
+                  <button onClick={()=>addValueToTarget('goal', g.id)} className="flex items-center justify-center gap-1 text-[10px] bg-green-50 text-green-700 py-1.5 rounded-md font-bold border border-green-100 hover:bg-green-100 transition-colors">
                     <DollarSign size={12}/> Investir
                   </button>
                   <button onClick={()=>setWithdrawModal({show:true, type:'goal', id:g.id, name:g.name})} className="flex items-center justify-center gap-1 text-[10px] bg-blue-50 text-blue-700 py-1.5 rounded-md font-bold border border-blue-100 hover:bg-blue-100 transition-colors">
