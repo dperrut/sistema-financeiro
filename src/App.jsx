@@ -815,7 +815,7 @@ export default function App() {
   );
 
   return (
-    <div className={`flex h-screen overflow-hidden transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+    <div className={`flex h-screen overflow-hidden transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-300'}`}>
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} handleLogout={handleLogout} familyName={familyName} />
         
         <main className="flex-1 flex flex-col h-screen overflow-hidden relative w-full">
@@ -861,7 +861,7 @@ export default function App() {
                 </div>
             )}
 
-            <div className={`flex-1 overflow-y-auto p-4 md:p-8 transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+            <div className={`flex-1 overflow-y-auto p-4 md:p-8 transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-300'}`}>
                 {activeTab === 'dashboard' && (
                     <DashboardView totalPatrimony={totalPatrimony} accumulatedBalance={accumulatedBalance} totalGoals={totalGoals} totalInvestments={totalInvestments} monthlyIncome={monthlyIncome} monthlyExpense={monthlyExpense} monthlyBalance={monthlyBalance} pieData={pieData} barData={barData} COLORS={COLORS} />
                 )}
