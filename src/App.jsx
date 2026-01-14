@@ -828,10 +828,36 @@ export default function App() {
             />
 
             {(activeTab === 'dashboard' || activeTab === 'transactions') && (
-                <div className="bg-white border-b px-4 py-2 flex justify-between items-center shadow-sm">
-                    <button onClick={() => {const d = new Date(currentDate); d.setMonth(d.getMonth()-1); setCurrentDate(d)}} className="p-2 bg-gray-50 rounded-full"><ChevronLeft size={20}/></button>
-                    <span className="font-bold text-gray-700 capitalize">{formatMonthYear(currentDate)}</span>
-                    <button onClick={() => {const d = new Date(currentDate); d.setMonth(d.getMonth()+1); setCurrentDate(d)}} className="p-2 bg-gray-50 rounded-full"><ChevronRight size={20}/></button>
+                // CONTAINER EXTERNO: Cria o espaçamento para o card "flutuar"
+                <div className="px-4 mt-6 mb-2 md:pl-8 md:pr-12">
+                    <div className="max-w-6xl mx-auto">                    
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-2 md:p-3 flex justify-between items-center transition-colors duration-300 border border-gray-100 dark:border-gray-700">
+                            
+                            {/* Botão Esquerda */}
+                            <button 
+                                onClick={() => {const d = new Date(currentDate); d.setMonth(d.getMonth()-1); setCurrentDate(d)}} 
+                                className="p-2 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 hover:text-blue-600 transition-all"
+                            >
+                                <ChevronLeft size={20}/>
+                            </button>
+                            
+                            {/* Texto do Mês (Com um destaque de cor sutil) */}
+                            <div className="flex items-center gap-2">
+                                <Calendar size={18} className="text-blue-500 dark:text-blue-400 mb-0.5" />
+                                <span className="font-bold text-gray-700 dark:text-gray-100 capitalize text-lg">
+                                    {formatMonthYear(currentDate)}
+                                </span>
+                            </div>
+                            
+                            {/* Botão Direita */}
+                            <button 
+                                onClick={() => {const d = new Date(currentDate); d.setMonth(d.getMonth()+1); setCurrentDate(d)}} 
+                                className="p-2 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 hover:text-blue-600 transition-all"
+                            >
+                                <ChevronRight size={20}/>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
