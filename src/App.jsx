@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ChevronLeft, ChevronRight, Calendar, ArrowUpCircle, ArrowDownCircle 
+import {
+  ChevronLeft, ChevronRight, Calendar, ArrowUpCircle, ArrowDownCircle
 } from 'lucide-react';
 
 // --- IMPORTAÇÃO DE COMPONENTES CUSTOMIZADOS (CRIADOS NA FASE 2) ---
@@ -15,16 +15,16 @@ import SettingsView from './components/SettingsView';
 import Toast from './components/Toast';
 
 // --- IMPORTAÇÕES DO FIREBASE ---
-import { auth, db } from './firebase'; 
-import { 
-    signInWithEmailAndPassword, 
-    createUserWithEmailAndPassword, 
-    signOut, 
-    onAuthStateChanged,
-    updateProfile,
+import { auth, db } from './firebase';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile,
 } from 'firebase/auth';
-import { 
-    ref, set, push, remove, onValue, update, get 
+import {
+  ref, set, push, remove, onValue, update, get
 } from 'firebase/database';
 
 export default function App() {
@@ -33,11 +33,11 @@ export default function App() {
   // ==================================================================================
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [authMode, setAuthMode] = useState('login'); 
+  const [authMode, setAuthMode] = useState('login');
   const [loginForm, setLoginForm] = useState({ email: '', password: '', name: '', pin: '' });
   const [activeTab, setActiveTab] = useState('dashboard');
   const [familyName, setFamilyName] = useState('Minha Família');
-  const [familyPin, setFamilyPin] = useState(''); 
+  const [familyPin, setFamilyPin] = useState('');
   const [transactions, setTransactions] = useState([]);
   const [goals, setGoals] = useState([]);
   const [investments, setInvestments] = useState([]);
@@ -51,8 +51,8 @@ export default function App() {
     setToast({ show: true, message, type });
   };
   // --- NOVO SISTEMA DE MODAL UNIFICADO ---
-  const [transactionModal, setTransactionModal] = useState({ 
-    show: false, action: '', type: '', id: null, name: '' 
+  const [transactionModal, setTransactionModal] = useState({
+    show: false, action: '', type: '', id: null, name: ''
   });
   const [transactionForm, setTransactionForm] = useState({ amount: '' });
   // --- LÓGICA DO MODO ESCURO (DARK MODE) ---
@@ -68,12 +68,8 @@ export default function App() {
   }, [darkMode]);
 
   const toggleTheme = () => setDarkMode(!darkMode);
-  
+
   // Função auxiliar para abrir o modal (usada pelos filhos)
-  const handleOpenTransactionModal = (action, type, id, name) => {
-    setTransactionForm({ amount: '' });
-    setTransactionModal({ show: true, action, type, id, name });
-  };
   const [withdrawModal, setWithdrawModal] = useState({ show: false, type: '', id: null, name: '' });
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', reason: '' });
   const [incomeForm, setIncomeForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '' });
@@ -101,52 +97,52 @@ export default function App() {
   // ==================================================================================
   // 2. CONEXÃO COM A NUVEM E SINCRONIZAÇÃO
   // ==================================================================================
-  
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-        if (user) {
-            const userRef = ref(db, `users/${user.uid}`);
-            get(userRef).then((snapshot) => {
-                if (snapshot.exists()) {
-                    const profile = snapshot.val();
-                    const userData = {
-                        uid: user.uid,
-                        email: user.email,
-                        name: profile.name || user.displayName || 'Usuário',
-                        familyId: profile.familyId
-                    };
-                    setCurrentUser(userData);
-                    if (profile.familyId) listenToFamilyData(profile.familyId);
-                } else {
-                    setCurrentUser({ uid: user.uid, email: user.email, name: user.displayName });
-                }
-                setLoading(false);
-            });
-        } else {
-            setCurrentUser(null);
-            setTransactions([]);
-            setGoals([]);
-            setInvestments([]);
-            setLoading(false);
-        }
+      if (user) {
+        const userRef = ref(db, `users/${user.uid}`);
+        get(userRef).then((snapshot) => {
+          if (snapshot.exists()) {
+            const profile = snapshot.val();
+            const userData = {
+              uid: user.uid,
+              email: user.email,
+              name: profile.name || user.displayName || 'Usuário',
+              familyId: profile.familyId
+            };
+            setCurrentUser(userData);
+            if (profile.familyId) listenToFamilyData(profile.familyId);
+          } else {
+            setCurrentUser({ uid: user.uid, email: user.email, name: user.displayName });
+          }
+          setLoading(false);
+        });
+      } else {
+        setCurrentUser(null);
+        setTransactions([]);
+        setGoals([]);
+        setInvestments([]);
+        setLoading(false);
+      }
     });
     return () => unsubscribe();
   }, []);
 
   const listenToFamilyData = (familyId) => {
-      const familyRef = ref(db, `families/${familyId}`);
-      onValue(familyRef, (snapshot) => {
-          const data = snapshot.val();
-          if (data) {
-              setFamilyName(data.name || 'Minha Família');
-              setFamilyPin(data.pin || '0000'); 
-              if (data.transactions) setTransactions(Object.values(data.transactions)); else setTransactions([]);
-              if (data.goals) setGoals(Object.values(data.goals)); else setGoals([]);
-              if (data.investments) setInvestments(Object.values(data.investments)); else setInvestments([]);
-              if (data.expenseCategories) setExpenseCategories(data.expenseCategories);
-              if (data.incomeCategories) setIncomeCategories(data.incomeCategories);
-          }
-      });
+    const familyRef = ref(db, `families/${familyId}`);
+    onValue(familyRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setFamilyName(data.name || 'Minha Família');
+        setFamilyPin(data.pin || '0000');
+        if (data.transactions) setTransactions(Object.values(data.transactions)); else setTransactions([]);
+        if (data.goals) setGoals(Object.values(data.goals)); else setGoals([]);
+        if (data.investments) setInvestments(Object.values(data.investments)); else setInvestments([]);
+        if (data.expenseCategories) setExpenseCategories(data.expenseCategories);
+        if (data.incomeCategories) setIncomeCategories(data.incomeCategories);
+      }
+    });
   };
 
   // ==================================================================================
@@ -158,137 +154,137 @@ export default function App() {
 
     // Validação simples de preenchimento
     if (!loginForm.email || !loginForm.password) {
-        alert("Por favor, preencha todos os campos.");
-        return;
+      alert("Por favor, preencha todos os campos.");
+      return;
     }
 
     try {
-        if (authMode === 'login') {
-            // Lógica de Login
-            await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
-        } else if (authMode === 'register') {
-            // 1. Cria o usuário no Firebase Auth
-            const userCred = await createUserWithEmailAndPassword(auth, loginForm.email, loginForm.password);
-            const uid = userCred.user.uid;
+      if (authMode === 'login') {
+        // Lógica de Login
+        await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
+      } else if (authMode === 'register') {
+        // 1. Cria o usuário no Firebase Auth
+        const userCred = await createUserWithEmailAndPassword(auth, loginForm.email, loginForm.password);
+        const uid = userCred.user.uid;
 
-            // 2. Prepara a criação da nova família no Realtime Database
-            const familyRef = push(ref(db, 'families'));
-            const familyId = familyRef.key;
-            const firstName = loginForm.name.split(' ')[0];
-            const nomeFamilia = `Família ${firstName}`;
+        // 2. Prepara a criação da nova família no Realtime Database
+        const familyRef = push(ref(db, 'families'));
+        const familyId = familyRef.key;
+        const firstName = loginForm.name.split(' ')[0];
+        const nomeFamilia = `Família ${firstName}`;
 
-            // 3. Salva os dados da Família
-            await set(familyRef, {
-                id: familyId,
-                name: nomeFamilia,
-                pin: loginForm.pin,
-                createdBy: uid,
-                members: { [uid]: loginForm.name },
-                expenseCategories, // Assume-se que estas variáveis existam no escopo
-                incomeCategories    // Assume-se que estas variáveis existam no escopo
-            });
+        // 3. Salva os dados da Família
+        await set(familyRef, {
+          id: familyId,
+          name: nomeFamilia,
+          pin: loginForm.pin,
+          createdBy: uid,
+          members: { [uid]: loginForm.name },
+          expenseCategories, // Assume-se que estas variáveis existam no escopo
+          incomeCategories    // Assume-se que estas variáveis existam no escopo
+        });
 
-            // 4. Salva os dados do Usuário (vinculando ao familyId)
-            await set(ref(db, `users/${uid}`), {
-                name: loginForm.name,
-                email: loginForm.email,
-                familyId: familyId,
-                role: 'admin' // Definindo o criador como admin por padrão
-            });
+        // 4. Salva os dados do Usuário (vinculando ao familyId)
+        await set(ref(db, `users/${uid}`), {
+          name: loginForm.name,
+          email: loginForm.email,
+          familyId: familyId,
+          role: 'admin' // Definindo o criador como admin por padrão
+        });
 
-            // 5. Atualiza o perfil do usuário no Auth (displayName)
-            await updateProfile(userCred.user, { displayName: loginForm.name });
-            
-            alert("Conta e Família criadas com sucesso!");
-        }
+        // 5. Atualiza o perfil do usuário no Auth (displayName)
+        await updateProfile(userCred.user, { displayName: loginForm.name });
+
+        alert("Conta e Família criadas com sucesso!");
+      }
     } catch (error) {
-        console.error("Erro na autenticação:", error);
-        
-        // Tratamento de erros amigável
-        let mensagemErro = "Ocorreu um erro inesperado.";
-        if (error.code === 'auth/email-already-in-use') mensagemErro = "Este e-mail já está em uso.";
-        if (error.code === 'auth/weak-password') mensagemErro = "A senha deve ter pelo menos 6 caracteres.";
-        if (error.code === 'auth/invalid-email') mensagemErro = "E-mail inválido.";
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-            mensagemErro = "E-mail ou senha incorretos.";
-        }
+      console.error("Erro na autenticação:", error);
 
-        alert(mensagemErro);
+      // Tratamento de erros amigável
+      let mensagemErro = "Ocorreu um erro inesperado.";
+      if (error.code === 'auth/email-already-in-use') mensagemErro = "Este e-mail já está em uso.";
+      if (error.code === 'auth/weak-password') mensagemErro = "A senha deve ter pelo menos 6 caracteres.";
+      if (error.code === 'auth/invalid-email') mensagemErro = "E-mail inválido.";
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        mensagemErro = "E-mail ou senha incorretos.";
+      }
+
+      alert(mensagemErro);
     }
-};
+  };
 
-  const handleLogout = () => { 
-      setLoginForm({ email: '', password: '', name: '', pin: '' });
-      setAuthMode('login');
-      signOut(auth); 
+  const handleLogout = () => {
+    setLoginForm({ email: '', password: '', name: '', pin: '' });
+    setAuthMode('login');
+    signOut(auth);
   };
 
   const handleEditPin = async () => {
-      const newPin = prompt("Digite o novo PIN:");
-      if (newPin) await update(ref(db, `families/${currentUser.familyId}`), { pin: newPin });
+    const newPin = prompt("Digite o novo PIN:");
+    if (newPin) await update(ref(db, `families/${currentUser.familyId}`), { pin: newPin });
   };
 
   const handleJoinFamily = async () => {
-      const targetFamilyId = joinFamilyForm.familyId.trim();
-      const familySnapshot = await get(ref(db, `families/${targetFamilyId}`));
-      if (familySnapshot.exists()) {
-          const familyData = familySnapshot.val();
-          if (String(familyData.pin) === String(joinFamilyForm.pin)) {
-              await update(ref(db, `users/${currentUser.uid}`), { familyId: targetFamilyId });
-              window.location.reload();
-          } else { alert("PIN incorreto"); }
-      }
+    const targetFamilyId = joinFamilyForm.familyId.trim();
+    const familySnapshot = await get(ref(db, `families/${targetFamilyId}`));
+    if (familySnapshot.exists()) {
+      const familyData = familySnapshot.val();
+      if (String(familyData.pin) === String(joinFamilyForm.pin)) {
+        await update(ref(db, `users/${currentUser.uid}`), { familyId: targetFamilyId });
+        window.location.reload();
+      } else { alert("PIN incorreto"); }
+    }
   };
 
   const addTransaction = (type) => {
     try {
       const isExpense = type === 'expense' || type === 'despesa';
       const form = isExpense ? expenseForm : incomeForm;
-      
+
       if (!form.description || !form.amount) return alert('Preencha os dados.');
-      
+
       const val = parseFloat(form.amount.toString().replace(/\./g, '').replace(',', '.'));
       if (isNaN(val) || val <= 0) return alert("Valor inválido.");
-      
+
       const fid = currentUser.familyId;
       const id = Date.now().toString();
       const metaData = { createdBy: currentUser.uid, authorName: currentUser.name || 'Membro' };
 
       // Salvando no Firebase
-      set(ref(db, `families/${fid}/transactions/${id}`), { 
-        id, 
-        type: isExpense ? 'despesa' : 'receita', 
-        description: form.description, 
-        amount: form.amount, 
-        value: val, 
-        date: form.date, 
+      set(ref(db, `families/${fid}/transactions/${id}`), {
+        id,
+        type: isExpense ? 'despesa' : 'receita',
+        description: form.description,
+        amount: form.amount,
+        value: val,
+        date: form.date,
         category: form.category || (isExpense ? expenseCategories[0] : incomeCategories[0]),
-        paymentMethod: isExpense ? (form.paymentMethod || 'Cartão de Crédito') : null, 
-        ...metaData 
+        paymentMethod: isExpense ? (form.paymentMethod || 'Cartão de Crédito') : null,
+        ...metaData
       }).then(() => {
         // --- AQUI ESTÁ A CORREÇÃO: LIMPANDO OS CAMPOS ---
         if (isExpense) {
-          setExpenseForm({ 
-            date: new Date().toISOString().split('T')[0], 
-            description: '', 
-            amount: '', 
-            category: expenseCategories[0], 
-            paymentMethod: 'Cartão de Crédito', 
-            installments: '1' 
+          setExpenseForm({
+            date: new Date().toISOString().split('T')[0],
+            description: '',
+            amount: '',
+            category: expenseCategories[0],
+            paymentMethod: 'Cartão de Crédito',
+            installments: '1'
           });
           showToast("Despesa adicionada!", "success");
         } else {
-          setIncomeForm({ 
-            date: new Date().toISOString().split('T')[0], 
-            description: '', 
-            amount: '', 
-            category: incomeCategories[0] 
+          setIncomeForm({
+            date: new Date().toISOString().split('T')[0],
+            description: '',
+            amount: '',
+            category: incomeCategories[0]
           });
           showToast("Receita adicionada!", "success");
         }
       });
-    } catch { 
-      showToast("Erro ao salvar", "error"); 
+    } catch {
+      showToast("Erro ao salvar", "error");
     }
   };
 
@@ -312,7 +308,7 @@ export default function App() {
       currentAmount: 0,
       createdAt: new Date().toISOString()
     };
-    
+
     await set(ref(db, `families/${currentUser.familyId}/goals/${id}`), newGoal);
     setGoalForm({ name: '', targetAmount: '', targetDate: '', description: '' });
     alert("🎯 Meta criada com sucesso!");
@@ -363,7 +359,7 @@ export default function App() {
     }
 
     const id = Date.now().toString();
-    
+
     // 3. O investimento já nasce com o dinheiro dentro (currentAmount)
     const newInv = {
       id,
@@ -371,7 +367,7 @@ export default function App() {
       currentAmount: initialVal,
       createdAt: new Date().toISOString()
     };
-    
+
     await set(ref(db, `families/${currentUser.familyId}/investments/${id}`), newInv);
 
     // 4. Geramos a saída automática do Saldo Livre (Aporte)
@@ -380,7 +376,7 @@ export default function App() {
       id: transId,
       type: 'despesa',
       description: `Aporte Inicial: ${investmentForm.name}`,
-      amount: investmentForm.initialAmount, 
+      amount: investmentForm.initialAmount,
       value: initialVal,
       date: new Date().toISOString().split('T')[0],
       category: 'Aporte',
@@ -427,31 +423,31 @@ export default function App() {
   };
 
   const addValueToTarget = async (type, id, vStr) => {
-      const val = parseFloat(vStr.toString().replace(/\./g, '').replace(',', '.'));
-      if (isNaN(val) || val <= 0) return;
+    const val = parseFloat(vStr.toString().replace(/\./g, '').replace(',', '.'));
+    if (isNaN(val) || val <= 0) return;
 
-      const path = type === 'goal' ? 'goals' : 'investments';
-      const list = type === 'goal' ? goals : investments;
-      const item = list.find(i => i.id === id);
+    const path = type === 'goal' ? 'goals' : 'investments';
+    const list = type === 'goal' ? goals : investments;
+    const item = list.find(i => i.id === id);
 
-      // 1. Aumenta o valor dentro da Meta/Investimento
-      await update(ref(db, `families/${currentUser.familyId}/${path}/${id}`), { 
-        currentAmount: (item.currentAmount || 0) + val 
-      });
+    // 1. Aumenta o valor dentro da Meta/Investimento
+    await update(ref(db, `families/${currentUser.familyId}/${path}/${id}`), {
+      currentAmount: (item.currentAmount || 0) + val
+    });
 
-      // 2. Registra uma "Saída" no Saldo Livre (Categoria: Aporte)
-      const transId = Date.now().toString();
-      await set(ref(db, `families/${currentUser.familyId}/transactions/${transId}`), {
-        id: transId,
-        type: 'despesa', // Tipo despesa para subtrair do Saldo Livre
-        description: `Aporte: ${item.name}`,
-        amount: val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-        value: val,
-        date: new Date().toISOString().split('T')[0],
-        category: 'Aporte', // Categoria especial para identificarmos depois
-        createdBy: currentUser.uid,
-        authorName: currentUser.name
-      });
+    // 2. Registra uma "Saída" no Saldo Livre (Categoria: Aporte)
+    const transId = Date.now().toString();
+    await set(ref(db, `families/${currentUser.familyId}/transactions/${transId}`), {
+      id: transId,
+      type: 'despesa', // Tipo despesa para subtrair do Saldo Livre
+      description: `Aporte: ${item.name}`,
+      amount: val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+      value: val,
+      date: new Date().toISOString().split('T')[0],
+      category: 'Aporte', // Categoria especial para identificarmos depois
+      createdBy: currentUser.uid,
+      authorName: currentUser.name
+    });
   };
 
   // --- NOVA FUNÇÃO CENTRALIZADA (APORTE E RESGATE) ---
@@ -475,12 +471,12 @@ export default function App() {
       const dataAntecipada = type === 'goal' && dataMeta && dataMeta > hoje;
 
       if (metaNaoBatida || dataAntecipada) {
-        if(!window.confirm("Atenção: Meta não atingida ou prazo não chegou. Resgatar mesmo assim?")) return;
+        if (!window.confirm("Atenção: Meta não atingida ou prazo não chegou. Resgatar mesmo assim?")) return;
       }
       if (val > (item.currentAmount || 0)) return alert("Saldo insuficiente.");
 
-      await update(ref(db, `families/${currentUser.familyId}/${path}/${id}`), { 
-        currentAmount: (item.currentAmount || 0) - val 
+      await update(ref(db, `families/${currentUser.familyId}/${path}/${id}`), {
+        currentAmount: (item.currentAmount || 0) - val
       });
 
       const transId = Date.now().toString();
@@ -496,12 +492,12 @@ export default function App() {
         authorName: currentUser.name
       });
       showToast(`Resgate de R$ ${val.toFixed(2)} realizado!`, "success");
-    } 
-    
+    }
+
     // LÓGICA DE APORTE (DEPOSIT)
     else if (action === 'deposit') {
-      await update(ref(db, `families/${currentUser.familyId}/${path}/${id}`), { 
-        currentAmount: (item.currentAmount || 0) + val 
+      await update(ref(db, `families/${currentUser.familyId}/${path}/${id}`), {
+        currentAmount: (item.currentAmount || 0) + val
       });
 
       const transId = Date.now().toString();
@@ -522,54 +518,94 @@ export default function App() {
     setTransactionForm({ amount: '' });
   };
 
+  // --- FUNÇÃO QUE FALTAVA: CONFIRMAR RESGATE (MODAL ANTIGO) ---
+  const handleWithdrawConfirm = async () => {
+    const val = parseFloat(withdrawForm.amount.toString().replace(/\./g, '').replace(',', '.'));
+    if (isNaN(val) || val <= 0) return alert("Valor inválido");
+
+    const { id, type, name } = withdrawModal;
+    const path = type === 'goal' ? 'goals' : 'investments';
+    const list = type === 'goal' ? goals : investments;
+    const item = list.find(i => i.id === id);
+
+    if (!item) return;
+
+    if (val > (item.currentAmount || 0)) return alert("Saldo insuficiente na meta/investimento.");
+
+    // 1. Deduz o valor da Meta/Investimento
+    await update(ref(db, `families/${currentUser.familyId}/${path}/${id}`), { 
+      currentAmount: (item.currentAmount || 0) - val 
+    });
+
+    // 2. Cria a transação de entrada (Resgate)
+    const transId = Date.now().toString();
+    await set(ref(db, `families/${currentUser.familyId}/transactions/${transId}`), {
+      id: transId,
+      type: 'receita',
+      description: `Resgate: ${name}`,
+      amount: withdrawForm.amount,
+      value: val,
+      date: new Date().toISOString().split('T')[0],
+      category: 'Resgate',
+      createdBy: currentUser.uid,
+      authorName: currentUser.name
+    });
+
+    showToast(`Resgate de R$ ${val.toFixed(2)} realizado!`, "success");
+    
+    // 3. Fecha o modal e limpa
+    setWithdrawModal({ show: false, type: '', id: null, name: '' });
+    setWithdrawForm({ amount: '', reason: '' });
+  };
+
   const handleAddCategory = (type, value) => {
-      const path = type === 'expense' ? 'expenseCategories' : 'incomeCategories';
-      const newList = type === 'expense' ? [...expenseCategories, value] : [...incomeCategories, value];
-      set(ref(db, `families/${currentUser.familyId}/${path}`), newList);
+    const path = type === 'expense' ? 'expenseCategories' : 'incomeCategories';
+    const newList = type === 'expense' ? [...expenseCategories, value] : [...incomeCategories, value];
+    set(ref(db, `families/${currentUser.familyId}/${path}`), newList);
   };
 
   const handleRemoveCategory = (type, value) => {
-      const path = type === 'expense' ? 'expenseCategories' : 'incomeCategories';
-      const newList = (type === 'expense' ? expenseCategories : incomeCategories).filter(c => c !== value);
-      set(ref(db, `families/${currentUser.familyId}/${path}`), newList);
+    const path = type === 'expense' ? 'expenseCategories' : 'incomeCategories';
+    const newList = (type === 'expense' ? expenseCategories : incomeCategories).filter(c => c !== value);
+    set(ref(db, `families/${currentUser.familyId}/${path}`), newList);
   };
 
-  const resetAllData = () => { if(window.confirm("Zerar tudo?")) set(ref(db, `families/${currentUser.familyId}`), { name: familyName, pin: familyPin }); };
+  const resetAllData = () => { if (window.confirm("Zerar tudo?")) set(ref(db, `families/${currentUser.familyId}`), { name: familyName, pin: familyPin }); };
 
   // --- FUNÇÃO DE EXPORTAÇÃO (ADICIONADA) ---
   const handleExportData = () => {
     try {
-      const data = { 
-        familyName, familyPin, transactions, goals, 
-        investments, incomeCategories, expenseCategories 
+      const data = {
+        familyName, familyPin, transactions, goals,
+        investments, incomeCategories, expenseCategories
       };
-      
+
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `backup_${familyName}.json`;
-      
+
       document.body.appendChild(link); // Adiciona o link temporariamente
       link.click();
       document.body.removeChild(link); // Remove após o clique
       URL.revokeObjectURL(url); // Limpa a memória do navegador
-      
+
       // Notificação de Sucesso
       if (typeof showToast === 'function') {
-          showToast("Backup exportado com sucesso!", "success");
+        showToast("Backup exportado com sucesso!", "success");
       } else {
-          alert("Backup exportado com sucesso!");
+        alert("Backup exportado com sucesso!");
       }
 
     } catch (error) { // <--- ADICIONADO O (error) AQUI PARA DEFINIR A VARIÁVEL
       // Se algo der errado, avisamos o usuário
       if (typeof showToast === 'function') {
-          showToast("Erro ao exportar backup", "error");
+        showToast("Erro ao exportar backup", "error");
       } else {
-          alert("Erro ao exportar backup");
+        alert("Erro ao exportar backup");
       }
-      console.error("Erro na exportação:", error); 
+      console.error("Erro na exportação:", error);
     }
   };
 
@@ -582,7 +618,7 @@ export default function App() {
     reader.onload = async (e) => {
       try {
         const data = JSON.parse(e.target.result);
-        
+
         // Validação: o arquivo tem estrutura de backup?
         if (!data.transactions && !data.goals && !data.investments) {
           throw new Error('Arquivo de backup inválido.');
@@ -591,7 +627,7 @@ export default function App() {
         if (window.confirm(`Deseja restaurar o backup da "${data.familyName || 'Família'}"? Isso substituirá seus dados atuais.`)) {
           const fid = currentUser.familyId;
           const updates = {};
-          
+
           // Converte arrays do JSON em objetos para o Firebase
           if (data.transactions) {
             const tObj = {};
@@ -617,7 +653,7 @@ export default function App() {
 
           // Envia para o Firebase
           await update(ref(db, `families/${fid}`), updates);
-          
+
           showToast("Dados restaurados com sucesso!", "success");
         }
       } catch (err) {
@@ -647,7 +683,7 @@ export default function App() {
       .reduce((acc, c) => acc + Number(c.value), 0);
 
     // SALDO DISPONÍVEL (LIVRE): Aqui entra a matemática pura de todas as transações
-    const accBalance = transactions.reduce((acc, c) => 
+    const accBalance = transactions.reduce((acc, c) =>
       c.type === 'receita' ? acc + Number(c.value) : acc - Number(c.value), 0);
 
     const goalsTotal = goals.reduce((acc, c) => acc + (Number(c.currentAmount) || 0), 0);
@@ -668,7 +704,7 @@ export default function App() {
       const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - (5 - i), 1);
       const monthLabel = d.toLocaleDateString('pt-BR', { month: 'short' });
       const yearLabel = d.getFullYear();
-      
+
       const monthTrans = transactions.filter(t => {
         if (!t.date) return false;
         const [y, m] = t.date.split('-');
@@ -685,16 +721,16 @@ export default function App() {
       return { name: `${monthLabel}/${yearLabel}`, Receita: monthInc, Despesa: monthExp };
     });
 
-    return { 
-      monthlyIncome: inc, 
-      monthlyExpense: exp, 
-      monthlyBalance: inc - exp, 
-      accumulatedBalance: accBalance, 
-      totalGoals: goalsTotal, 
-      totalInvestments: investTotal, 
-      totalPatrimony: accBalance + goalsTotal + investTotal, 
-      pieData: pData, 
-      barData: bData 
+    return {
+      monthlyIncome: inc,
+      monthlyExpense: exp,
+      monthlyBalance: inc - exp,
+      accumulatedBalance: accBalance,
+      totalGoals: goalsTotal,
+      totalInvestments: investTotal,
+      totalPatrimony: accBalance + goalsTotal + investTotal,
+      pieData: pData,
+      barData: bData
     };
   }, [transactions, goals, investments, currentDate]);
 
@@ -706,7 +742,7 @@ export default function App() {
   if (!currentUser) return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 flex items-center justify-center p-4">
       <div className="bg-white/95 backdrop-blur-sm p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
-        
+
         {/* Cabeçalho */}
         <div className="text-center mb-8">
           <h2 className="text-3xl font-extrabold text-blue-900 tracking-tight">
@@ -718,16 +754,16 @@ export default function App() {
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
-          
+
           {/* Campo E-mail */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
-            <input 
-              className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
-              type="email" 
-              placeholder="exemplo@email.com" 
-              value={loginForm.email} 
-              onChange={e => setLoginForm({...loginForm, email: e.target.value})} 
+            <input
+              className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              type="email"
+              placeholder="exemplo@email.com"
+              value={loginForm.email}
+              onChange={e => setLoginForm({ ...loginForm, email: e.target.value })}
               required
             />
           </div>
@@ -736,12 +772,12 @@ export default function App() {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
             <div className="relative">
-              <input 
-                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
-                type={showPassword ? "text" : "password"} 
-                placeholder="••••••••" 
-                value={loginForm.password} 
-                onChange={e => setLoginForm({...loginForm, password: e.target.value})} 
+              <input
+                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                value={loginForm.password}
+                onChange={e => setLoginForm({ ...loginForm, password: e.target.value })}
                 required
               />
               <button
@@ -758,15 +794,15 @@ export default function App() {
           {authMode === 'register' && (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
               <hr className="border-slate-100 my-2" />
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Seu Nome Completo</label>
-                <input 
-                  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
-                  type="text" 
-                  placeholder="Como quer ser chamado?" 
-                  value={loginForm.name} 
-                  onChange={e => setLoginForm({...loginForm, name: e.target.value})} 
+                <input
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  type="text"
+                  placeholder="Como quer ser chamado?"
+                  value={loginForm.name}
+                  onChange={e => setLoginForm({ ...loginForm, name: e.target.value })}
                   required
                 />
               </div>
@@ -774,13 +810,13 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1 text-blue-800">Definir PIN da Família (4 dígitos)</label>
                 <div className="relative">
-                  <input 
-                    className="w-full p-3 border-2 border-blue-100 bg-blue-50/30 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono text-center text-lg tracking-[0.5em]" 
-                    type={showPin ? "text" : "password"} 
+                  <input
+                    className="w-full p-3 border-2 border-blue-100 bg-blue-50/30 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono text-center text-lg tracking-[0.5em]"
+                    type={showPin ? "text" : "password"}
                     maxLength="4"
-                    placeholder="0000" 
-                    value={loginForm.pin} 
-                    onChange={e => setLoginForm({...loginForm, pin: e.target.value})} 
+                    placeholder="0000"
+                    value={loginForm.pin}
+                    onChange={e => setLoginForm({ ...loginForm, pin: e.target.value })}
                     required
                   />
                   <button
@@ -802,9 +838,9 @@ export default function App() {
           </button>
 
           {/* Alternar entre Login/Registro */}
-          <button 
-            type="button" 
-            onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} 
+          <button
+            type="button"
+            onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
             className="w-full mt-4 text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors text-center block"
           >
             {authMode === 'login' ? 'Não tem conta? Cadastre sua família' : 'Já tem uma conta? Faça Login'}
@@ -816,183 +852,224 @@ export default function App() {
 
   return (
     <div className={`flex h-screen overflow-hidden transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-300'}`}>
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} handleLogout={handleLogout} familyName={familyName} />
-        
-        <main className="flex-1 flex flex-col h-screen overflow-hidden relative w-full">
-            <Header 
-                activeTab={activeTab} 
-                familyName={familyName} 
-                currentUser={currentUser} 
-                darkMode={darkMode}       // Informa se está escuro
-                toggleTheme={toggleTheme} // Entrega o interruptor
-            />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} handleLogout={handleLogout} familyName={familyName} />
 
-            {(activeTab === 'dashboard' || activeTab === 'transactions') && (
-                // CONTAINER EXTERNO: Cria o espaçamento para o card "flutuar"
-                <div className="px-4 mt-6 mb-2 md:pl-8 md:pr-12">
-                    <div className="max-w-6xl mx-auto">                    
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-2 md:p-3 flex justify-between items-center transition-colors duration-300 border border-gray-100 dark:border-gray-700">
-                            
-                            {/* Botão Esquerda */}
-                            <button 
-                                onClick={() => {const d = new Date(currentDate); d.setMonth(d.getMonth()-1); setCurrentDate(d)}} 
-                                className="p-2 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 hover:text-blue-600 transition-all"
-                            >
-                                <ChevronLeft size={20}/>
-                            </button>
-                            
-                            {/* Texto do Mês (Com um destaque de cor sutil) */}
-                            <div className="flex items-center gap-2">
-                                <Calendar size={18} className="text-blue-500 dark:text-blue-400 mb-0.5" />
-                                <span className="font-bold text-gray-700 dark:text-gray-100 capitalize text-lg">
-                                    {formatMonthYear(currentDate)}
-                                </span>
-                            </div>
-                            
-                            {/* Botão Direita */}
-                            <button 
-                                onClick={() => {const d = new Date(currentDate); d.setMonth(d.getMonth()+1); setCurrentDate(d)}} 
-                                className="p-2 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 hover:text-blue-600 transition-all"
-                            >
-                                <ChevronRight size={20}/>
-                            </button>
-                        </div>
-                    </div>
+      <main className="flex-1 flex flex-col h-screen overflow-hidden relative w-full">
+        <Header
+          activeTab={activeTab}
+          familyName={familyName}
+          currentUser={currentUser}
+          darkMode={darkMode}       // Informa se está escuro
+          toggleTheme={toggleTheme} // Entrega o interruptor
+        />
+
+        {(activeTab === 'dashboard' || activeTab === 'transactions') && (
+          // CONTAINER EXTERNO: Cria o espaçamento para o card "flutuar"
+          <div className="px-4 mt-6 mb-2 md:pl-8 md:pr-12">
+            <div className="max-w-6xl mx-auto">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-2 md:p-3 flex justify-between items-center transition-colors duration-300 border border-gray-100 dark:border-gray-700">
+
+                {/* Botão Esquerda */}
+                <button
+                  onClick={() => { const d = new Date(currentDate); d.setMonth(d.getMonth() - 1); setCurrentDate(d) }}
+                  className="p-2 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 hover:text-blue-600 transition-all"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+
+                {/* Texto do Mês (Com um destaque de cor sutil) */}
+                <div className="flex items-center gap-2">
+                  <Calendar size={18} className="text-blue-500 dark:text-blue-400 mb-0.5" />
+                  <span className="font-bold text-gray-700 dark:text-gray-100 capitalize text-lg">
+                    {formatMonthYear(currentDate)}
+                  </span>
                 </div>
-            )}
 
-            <div className={`flex-1 overflow-y-auto p-4 md:p-8 transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-300'}`}>
-                {activeTab === 'dashboard' && (
-                    <DashboardView totalPatrimony={totalPatrimony} accumulatedBalance={accumulatedBalance} totalGoals={totalGoals} totalInvestments={totalInvestments} monthlyIncome={monthlyIncome} monthlyExpense={monthlyExpense} monthlyBalance={monthlyBalance} pieData={pieData} barData={barData} COLORS={COLORS} />
-                )}
-
-            {activeTab === 'transactions' && (
-                <TransactionsView 
-                accumulatedBalance={accumulatedBalance}
-                totalPatrimony={totalPatrimony}
-                totalGoals={totalGoals}
-                totalInvestments={totalInvestments}
-                monthlyIncome={monthlyIncome}
-                monthlyExpense={monthlyExpense}
-                monthlyBalance={monthlyBalance}
-                editingId={editingId}
-                setEditingId={setEditingId}
-                incomeForm={incomeForm}
-                setIncomeForm={setIncomeForm}
-                expenseForm={expenseForm}
-                setExpenseForm={setExpenseForm}
-                addTransaction={addTransaction}
-                startEditing={startEditing}
-                removeTransaction={removeTransaction}
-                incomeCategories={incomeCategories}
-                expenseCategories={expenseCategories}
-                transactions={transactions}
-                currentDate={currentDate}
-                formatMonthYear={formatMonthYear}
-                currentUser={currentUser}
-                handleCurrencyChange={handleCurrencyChange} // <--- LINHA ADICIONADA
-                />
-            )}
-
-            {activeTab === 'goals' && (
-                <GoalsView 
-                    goalForm={goalForm} setGoalForm={setGoalForm} addGoal={addGoal} goals={goals} 
-                    // MUDANÇA AQUI: Agora chama a função que abre o Modal de Depósito
-                    addValueToTarget={(type, id) => handleOpenTransactionModal('deposit', type, id, goals.find(g=>g.id===id)?.name)} 
-                    deleteGoal={deleteGoal} 
-                    // MUDANÇA AQUI: Agora chama a função que abre o Modal de Resgate
-                    setWithdrawModal={({show, type, id, name}) => handleOpenTransactionModal('withdraw', type, id, name)} 
-                    handleCurrencyChange={handleCurrencyChange}
-                />
-            )}
-
-            {activeTab === 'investments' && (
-                <InvestmentsView 
-                    investmentForm={investmentForm} setInvestmentForm={setInvestmentForm} addInvestment={addInvestment} investments={investments} 
-                    // MUDANÇA AQUI: Mesmo ajuste para investimentos
-                    addValueToTarget={(type, id) => handleOpenTransactionModal('deposit', type, id, investments.find(i=>i.id===id)?.name)} 
-                    deleteInvestment={deleteInvestment} 
-                    setWithdrawModal={({show, type, id, name}) => handleOpenTransactionModal('withdraw', type, id, name)} 
-                    handleCurrencyChange={handleCurrencyChange}
-                />
-            )}
-
-                {activeTab === 'settings' && (
-                    <SettingsView 
-                        currentUser={currentUser} 
-                        familyPin={familyPin} 
-                        handleEditPin={handleEditPin}
-                        joinFamilyForm={joinFamilyForm} 
-                        setJoinFamilyForm={setJoinFamilyForm} 
-                        handleJoinFamily={handleJoinFamily}
-                        newIncomeCat={newIncomeCat} 
-                        setNewIncomeCat={setNewIncomeCat} 
-                        handleAddCategory={handleAddCategory} 
-                        incomeCategories={incomeCategories} 
-                        handleRemoveCategory={handleRemoveCategory}
-                        newExpenseCat={newExpenseCat} 
-                        setNewExpenseCat={setNewExpenseCat} 
-                        expenseCategories={expenseCategories}
-                        
-                        // LINHA CORRIGIDA AQUI:
-                        importDataToFirebase={importDataToFirebase} 
-                        
-                        resetAllData={resetAllData} 
-                        handleExportData={handleExportData}
-                    />
-                )}
-
-                {/* --- O NOVO MODAL UNIFICADO E FORMATADO --- */}
-                {transactionModal.show && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div className="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
-                            
-                            <div className="flex justify-between items-start mb-4">
-                              <h3 className={`font-bold text-lg flex items-center gap-2 ${transactionModal.action === 'withdraw' ? 'text-red-600' : 'text-green-600'}`}>
-                                {transactionModal.action === 'withdraw' ? <ArrowDownCircle size={24}/> : <ArrowUpCircle size={24}/>}
-                                {transactionModal.action === 'withdraw' ? 'Resgatar Valor' : 'Novo Aporte'}
-                              </h3>
-                              <button onClick={() => setTransactionModal({ ...transactionModal, show: false })} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
-                            </div>
-
-                            <p className="text-gray-600 text-sm mb-4">
-                              {transactionModal.action === 'withdraw' ? 'Retirar dinheiro de:' : 'Adicionar dinheiro em:'} <br/>
-                              <span className="font-bold text-gray-800 text-base">{transactionModal.name}</span>
-                            </p>
-
-                            <form onSubmit={handleConfirmTransaction}>
-                                <div className="mb-6">
-                                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Valor da Transação</label>
-                                  <input 
-                                    type="text" 
-                                    className={`w-full p-3 border-2 rounded-xl text-xl font-bold outline-none focus:ring-4 transition-all ${transactionModal.action === 'withdraw' ? 'border-red-100 text-red-700 focus:border-red-500 focus:ring-red-500/20' : 'border-green-100 text-green-700 focus:border-green-500 focus:ring-green-500/20'}`} 
-                                    placeholder="R$ 0,00" 
-                                    value={transactionForm.amount} 
-                                    onChange={e => handleCurrencyChange(e, setTransactionForm, transactionForm, 'amount')} 
-                                    autoFocus 
-                                  />
-                                </div>
-                                
-                                <div className="flex justify-end gap-3">
-                                  <button type="button" onClick={() => setTransactionModal({ ...transactionModal, show: false })} className="px-4 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors">Cancelar</button>
-                                  <button className={`px-6 py-3 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95 ${transactionModal.action === 'withdraw' ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'}`}>
-                                    Confirmar
-                                  </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
+                {/* Botão Direita */}
+                <button
+                  onClick={() => { const d = new Date(currentDate); d.setMonth(d.getMonth() + 1); setCurrentDate(d) }}
+                  className="p-2 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 hover:text-blue-600 transition-all"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
             </div>
-            {/* --- SISTEMA DE NOTIFICAÇÕES TOAST (FASE 3) --- */}
+          </div>
+        )}
+
+        <div className={`flex-1 overflow-y-auto p-4 md:p-8 transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-300'}`}>
+          {activeTab === 'dashboard' && (
+            <DashboardView totalPatrimony={totalPatrimony} accumulatedBalance={accumulatedBalance} totalGoals={totalGoals} totalInvestments={totalInvestments} monthlyIncome={monthlyIncome} monthlyExpense={monthlyExpense} monthlyBalance={monthlyBalance} pieData={pieData} barData={barData} COLORS={COLORS} />
+          )}
+
+          {activeTab === 'transactions' && (
+            <TransactionsView
+              accumulatedBalance={accumulatedBalance}
+              totalPatrimony={totalPatrimony}
+              totalGoals={totalGoals}
+              totalInvestments={totalInvestments}
+              monthlyIncome={monthlyIncome}
+              monthlyExpense={monthlyExpense}
+              monthlyBalance={monthlyBalance}
+              editingId={editingId}
+              setEditingId={setEditingId}
+              incomeForm={incomeForm}
+              setIncomeForm={setIncomeForm}
+              expenseForm={expenseForm}
+              setExpenseForm={setExpenseForm}
+              addTransaction={addTransaction}
+              startEditing={startEditing}
+              removeTransaction={removeTransaction}
+              incomeCategories={incomeCategories}
+              expenseCategories={expenseCategories}
+              transactions={transactions}
+              currentDate={currentDate}
+              formatMonthYear={formatMonthYear}
+              currentUser={currentUser}
+              handleCurrencyChange={handleCurrencyChange} // <--- LINHA ADICIONADA
+            />
+          )}
+
+          {activeTab === 'goals' && (
+            <GoalsView
+              goalForm={goalForm}
+              setGoalForm={setGoalForm}
+              addGoal={addGoal}
+              goals={goals}
+              addValueToTarget={addValueToTarget} // <--- Adicionado
+              deleteGoal={deleteGoal}
+              setWithdrawModal={setWithdrawModal} // <--- Adicionado
+              handleCurrencyChange={handleCurrencyChange}
+            />
+          )}
+
+          {activeTab === 'investments' && (
+            <InvestmentsView
+              investmentForm={investmentForm}
+              setInvestmentForm={setInvestmentForm}
+              addInvestment={addInvestment}
+              investments={investments}
+              addValueToTarget={addValueToTarget} // <--- Adicionado
+              deleteInvestment={deleteInvestment}
+              setWithdrawModal={setWithdrawModal} // <--- Adicionado
+              handleCurrencyChange={handleCurrencyChange}
+            />
+          )}
+
+          {activeTab === 'settings' && (
+            <SettingsView
+              currentUser={currentUser}
+              familyPin={familyPin}
+              handleEditPin={handleEditPin}
+              joinFamilyForm={joinFamilyForm}
+              setJoinFamilyForm={setJoinFamilyForm}
+              handleJoinFamily={handleJoinFamily}
+              newIncomeCat={newIncomeCat}
+              setNewIncomeCat={setNewIncomeCat}
+              handleAddCategory={handleAddCategory}
+              incomeCategories={incomeCategories}
+              handleRemoveCategory={handleRemoveCategory}
+              newExpenseCat={newExpenseCat}
+              setNewExpenseCat={setNewExpenseCat}
+              expenseCategories={expenseCategories}
+
+              // LINHA CORRIGIDA AQUI:
+              importDataToFirebase={importDataToFirebase}
+
+              resetAllData={resetAllData}
+              handleExportData={handleExportData}
+            />
+          )}
+
+          {/* MODAL DE RESGATE */}
+          {withdrawModal.show && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-700 animate-in fade-in zoom-in duration-200">
+                <h3 className="font-bold text-lg mb-4 text-gray-800 dark:text-white">Resgatar de: {withdrawModal.name}</h3>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Valor do Resgate</label>
+                    <input
+                      autoFocus
+                      type="text"
+                      className="w-full text-2xl font-bold text-gray-800 dark:text-white border-b-2 border-blue-500 bg-transparent outline-none py-2"
+                      placeholder="R$ 0,00"
+                      value={withdrawForm.amount}
+                      onChange={(e) => handleCurrencyChange(e, setWithdrawForm, withdrawForm, 'amount')}
+                    />
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => setWithdrawModal({ show: false, type: null, id: null, name: '' })}
+                      className="flex-1 py-3 text-gray-500 dark:text-gray-400 font-bold text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleWithdrawConfirm}
+                      className="flex-1 py-3 bg-blue-600 text-white font-bold text-sm rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95"
+                    >
+                      Confirmar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- O NOVO MODAL UNIFICADO E FORMATADO --- */}
+          {transactionModal.show && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
+
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className={`font-bold text-lg flex items-center gap-2 ${transactionModal.action === 'withdraw' ? 'text-red-600' : 'text-green-600'}`}>
+                    {transactionModal.action === 'withdraw' ? <ArrowDownCircle size={24} /> : <ArrowUpCircle size={24} />}
+                    {transactionModal.action === 'withdraw' ? 'Resgatar Valor' : 'Novo Aporte'}
+                  </h3>
+                  <button onClick={() => setTransactionModal({ ...transactionModal, show: false })} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
+                </div>
+
+                <p className="text-gray-600 text-sm mb-4">
+                  {transactionModal.action === 'withdraw' ? 'Retirar dinheiro de:' : 'Adicionar dinheiro em:'} <br />
+                  <span className="font-bold text-gray-800 text-base">{transactionModal.name}</span>
+                </p>
+
+                <form onSubmit={handleConfirmTransaction}>
+                  <div className="mb-6">
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Valor da Transação</label>
+                    <input
+                      type="text"
+                      className={`w-full p-3 border-2 rounded-xl text-xl font-bold outline-none focus:ring-4 transition-all ${transactionModal.action === 'withdraw' ? 'border-red-100 text-red-700 focus:border-red-500 focus:ring-red-500/20' : 'border-green-100 text-green-700 focus:border-green-500 focus:ring-green-500/20'}`}
+                      placeholder="R$ 0,00"
+                      value={transactionForm.amount}
+                      onChange={e => handleCurrencyChange(e, setTransactionForm, transactionForm, 'amount')}
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3">
+                    <button type="button" onClick={() => setTransactionModal({ ...transactionModal, show: false })} className="px-4 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors">Cancelar</button>
+                    <button className={`px-6 py-3 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95 ${transactionModal.action === 'withdraw' ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'}`}>
+                      Confirmar
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+        {/* --- SISTEMA DE NOTIFICAÇÕES TOAST (FASE 3) --- */}
         {toast.show && (
-          <Toast 
-            message={toast.message} 
-            type={toast.type} 
-            onClose={() => setToast({ ...toast, show: false })} 
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast({ ...toast, show: false })}
           />
         )}
-        </main>
+      </main>
     </div>
   );
 }
