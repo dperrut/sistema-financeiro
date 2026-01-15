@@ -897,7 +897,7 @@ export default function App() {
           </div>
         )}
 
-        <div className={`flex-1 overflow-y-auto p-4 md:p-8 transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-300'}`}>
+        <div className={`flex-1 overflow-y-auto p-4 pb-24 md:p-8 transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-300'}`}>
           {activeTab === 'dashboard' && (
             <DashboardView totalPatrimony={totalPatrimony} accumulatedBalance={accumulatedBalance} totalGoals={totalGoals} totalInvestments={totalInvestments} monthlyIncome={monthlyIncome} monthlyExpense={monthlyExpense} monthlyBalance={monthlyBalance} pieData={pieData} barData={barData} COLORS={COLORS} />
           )}
