@@ -57,6 +57,9 @@ export default function App() {
   const [transactionForm, setTransactionForm] = useState({ amount: '' });
   // --- LÓGICA DO MODO ESCURO (DARK MODE) ---
   const [darkMode, setDarkMode] = useState(false);
+  // Estado para o Modal de Antecipação
+  const [anticipateModal, setAnticipateModal] = useState({ show: false, transaction: null });
+  const [anticipateCount, setAnticipateCount] = useState(1);
 
   // Efeito que aplica a classe 'dark' no HTML do site
   useEffect(() => {
@@ -756,6 +759,67 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  // --- FUNÇÃO INTELIGENTE: ANTECIPAÇÃO DE PARCELAS ---
+  const handleAnticipateConfirm = async () => {
+    const { transaction } = anticipateModal;
+    const count = parseInt(anticipateCount);
+    
+    if (!transaction || count <= 0) return;
+    
+    const groupId = transaction.installmentGroupId;
+    const currentIdx = parseInt(transaction.installmentIndex);
+
+    // 1. Busca todas as parcelas desse grupo
+    const allInstallments = transactions.filter(t => t.installmentGroupId === groupId);
+    
+    // 2. Separa as FUTURAS (que têm índice maior que a atual)
+    const futureInstallments = allInstallments
+      .filter(t => parseInt(t.installmentIndex) > currentIdx)
+      .sort((a, b) => parseInt(a.installmentIndex) - parseInt(b.installmentIndex));
+
+    if (futureInstallments.length < count) {
+      alert("Não existem tantas parcelas futuras para antecipar.");
+      return;
+    }
+
+    const updates = {};
+    const targetDateStr = transaction.date; // A data para onde elas vêm (mês da parcela atual)
+    
+    // Data base para recalcular o restante da fila (Mês seguinte ao atual)
+    const baseDateForShift = new Date(targetDateStr + 'T12:00:00');
+    baseDateForShift.setMonth(baseDateForShift.getMonth() + 1); // Começa do próximo mês
+
+    // 3. PROCESSAMENTO
+    // A) Parcelas que serão ANTECIPADAS (Trazidas para hoje)
+    for (let i = 0; i < count; i++) {
+      const t = futureInstallments[i];
+      updates[`families/${currentUser.familyId}/transactions/${t.id}/date`] = targetDateStr;
+      updates[`families/${currentUser.familyId}/transactions/${t.id}/description`] = t.description.includes('(Antecipado)') ? t.description : `${t.description} (Antecipado)`;
+    }
+
+    // B) Parcelas RESTANTES (A fila anda!)
+    // Elas devem ocupar os meses subsequentes, preenchendo o buraco
+    for (let i = count; i < futureInstallments.length; i++) {
+      const t = futureInstallments[i];
+      
+      // Calcula a nova data sequencial
+      const newDate = new Date(baseDateForShift);
+      newDate.setMonth(baseDateForShift.getMonth() + (i - count)); // Desloca baseado em quantas sobraram
+      
+      updates[`families/${currentUser.familyId}/transactions/${t.id}/date`] = newDate.toISOString().split('T')[0];
+    }
+
+    try {
+      await update(ref(db), updates);
+      showToast(`${count} parcelas antecipadas com sucesso!`, "success");
+      setAnticipateModal({ show: false, transaction: null });
+      setAnticipateCount(1);
+    } catch (error) {
+      console.error(error);
+      showToast("Erro ao antecipar parcelas.", "error");
+    }
+  };
+
   // --- CÁLCULOS OTIMIZADOS COM USEMEMO (ADICIONADO) ---
   const totals = React.useMemo(() => {
     const currentMonthTrans = transactions.filter(t => {
@@ -1018,7 +1082,8 @@ export default function App() {
               currentDate={currentDate}
               formatMonthYear={formatMonthYear}
               currentUser={currentUser}
-              handleCurrencyChange={handleCurrencyChange} // <--- LINHA ADICIONADA
+              handleCurrencyChange={handleCurrencyChange}
+              setAnticipateModal={setAnticipateModal}
             />
           )}
 
@@ -1160,6 +1225,44 @@ export default function App() {
             type={toast.type}
             onClose={() => setToast({ ...toast, show: false })}
           />
+        )}
+
+        {/* MODAL DE ANTECIPAÇÃO DE PARCELAS */}
+        {anticipateModal.show && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-700 scale-100 animate-in zoom-in-95 duration-200">
+              <h3 className="font-bold text-lg mb-2 text-gray-800 dark:text-white flex items-center gap-2">
+                ⏩ Antecipar Parcelas
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Quantas parcelas futuras você deseja trazer para o mês atual (<strong>{formatMonthYear(new Date(anticipateModal.transaction.date))}</strong>)?
+                <br/><span className="text-xs italic mt-1 block text-orange-600">Isso encurtará o final da sua dívida.</span>
+              </p>
+
+              <div className="flex items-center justify-center gap-4 mb-8">
+                <button 
+                  onClick={() => setAnticipateCount(c => Math.max(1, c - 1))}
+                  className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 font-bold hover:bg-gray-200 transition-colors"
+                >-</button>
+                <span className="text-3xl font-bold text-blue-600 dark:text-blue-400 w-12 text-center">{anticipateCount}</span>
+                <button 
+                  onClick={() => setAnticipateCount(c => c + 1)}
+                  className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 font-bold hover:bg-gray-200 transition-colors"
+                >+</button>
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setAnticipateModal({ show: false, transaction: null })}
+                  className="flex-1 py-3 text-gray-500 dark:text-gray-400 font-bold text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                >Cancelar</button>
+                <button 
+                  onClick={handleAnticipateConfirm}
+                  className="flex-1 py-3 bg-blue-600 text-white font-bold text-sm rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95"
+                >Confirmar</button>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>

@@ -12,7 +12,8 @@ export default function TransactionsView({
   addTransaction, startEditing, removeTransaction,
   incomeCategories, expenseCategories,
   transactions, currentDate, formatMonthYear, currentUser,
-  handleCurrencyChange // <--- 1. RECEBENDO A FUNÇÃO AQUI
+  handleCurrencyChange,
+  setAnticipateModal
 }) {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -169,6 +170,17 @@ export default function TransactionsView({
                   }`}>
                     {t.type === 'receita' ? '+' : '-'} R$ {Number(t.value).toFixed(2)}
                   </span>
+                  {/* BOTÃO DE ANTECIPAR (Só aparece se for parcelado) */}
+                  {t.installmentGroupId && (
+                    <button 
+                      onClick={() => setAnticipateModal({ show: true, transaction: t })} 
+                      className="text-orange-400 hover:text-orange-600 p-1 transition-colors"
+                      title="Antecipar Parcelas Futuras"
+                    >
+                      {/* Ícone Fast Forward (⏩) */}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>
+                    </button>
+                  )}
                   <button onClick={()=>startEditing(t)} className="text-blue-400 hover:text-blue-600 p-1"><Edit size={14}/></button>
                   <button onClick={()=>removeTransaction(t.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={14}/></button>
                 </div>
