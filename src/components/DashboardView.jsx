@@ -13,7 +13,7 @@ export default function DashboardView({
     <div className="space-y-4 max-w-6xl mx-auto">
       
       {/* 1. BANNER DE PATRIMÔNIO (ESTILO CARD PADRÃO) */}
-      <div className="bg-white dark:bg-gray-800 p-0 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 overflow-hidden min-h-[90px] transition-colors duration-300">
+      <div className="bg-white dark:bg-gray-800 p-0 rounded-xl shadow-lg shadow-gray-200 dark:shadow-none border border-gray-100 dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 overflow-hidden min-h-[90px] transition-colors duration-300">
         
         {/* Lado Esquerdo: Patrimônio Total */}
         <div className="py-2 px-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-700">

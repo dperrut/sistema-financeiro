@@ -17,30 +17,35 @@ export default function TransactionsView({
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       
-      {/* 1. RESUMO DE SALDOS (BANNER ESCURO) */}
-      <div className="bg-gray-800 text-white rounded-xl shadow-lg grid grid-cols-1 md:grid-cols-2 overflow-hidden min-h-[90px]">
-        <div className="py-2 px-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-600 bg-gray-900/30">
+      {/* 1. RESUMO DE SALDOS (Agora com visual Branco/Dark + Sombra) */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg shadow-gray-200 dark:shadow-none border border-gray-100 dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 overflow-hidden min-h-[90px] transition-all duration-300">
+        
+        {/* Lado Esquerdo: Disponível Livre */}
+        <div className="py-2 px-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-3 mb-0">
-            <div className="bg-green-500/20 p-1 rounded-full"><DollarSign size={18} className="text-green-400" /></div>
-            <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Disponível (Livre)</p>
+            <div className="bg-green-100 dark:bg-green-900/30 p-1 rounded-full">
+              <DollarSign size={18} className="text-green-600 dark:text-green-400" />
+            </div>
+            <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold uppercase tracking-wider">Disponível (Livre)</p>
           </div>
-          <h2 className={`text-2xl font-bold ${accumulatedBalance >= 0 ? 'text-white' : 'text-red-300'}`}>
+          <h2 className={`text-2xl font-bold ${accumulatedBalance >= 0 ? 'text-gray-800 dark:text-white' : 'text-red-500 dark:text-red-400'}`}>
             R$ {accumulatedBalance.toFixed(2)}
           </h2>
         </div>
 
-        <div className="grid grid-cols-3 divide-x divide-gray-600 bg-gray-700/10">
+        {/* Lado Direito: Totais (Patrimônio, Metas, Investimentos) */}
+        <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-700 bg-gray-50 dark:bg-gray-900/20">
           <div className="flex flex-col items-center justify-center p-2">
-            <span className="text-base font-bold text-gray-200 block">R$ {totalPatrimony.toFixed(2)}</span>
-            <span className="text-[10px] text-gray-500 uppercase font-bold">Total</span>
+            <span className="text-base font-bold text-gray-700 dark:text-gray-200 block">R$ {totalPatrimony.toFixed(2)}</span>
+            <span className="text-[10px] text-gray-400 uppercase font-bold">Total</span>
           </div>
           <div className="flex flex-col items-center justify-center p-2">
-            <span className="text-base font-bold text-gray-200 block">R$ {totalGoals.toFixed(2)}</span>
-            <span className="text-[10px] text-gray-500 uppercase font-bold">Metas</span>
+            <span className="text-base font-bold text-gray-700 dark:text-gray-200 block">R$ {totalGoals.toFixed(2)}</span>
+            <span className="text-[10px] text-gray-400 uppercase font-bold">Metas</span>
           </div>
           <div className="flex flex-col items-center justify-center p-2">
-            <span className="text-base font-bold text-gray-200 block">R$ {totalInvestments.toFixed(2)}</span>
-            <span className="text-[10px] text-gray-500 uppercase font-bold">Invest.</span>
+            <span className="text-base font-bold text-gray-700 dark:text-gray-200 block">R$ {totalInvestments.toFixed(2)}</span>
+            <span className="text-[10px] text-gray-400 uppercase font-bold">Invest.</span>
           </div>
         </div>
       </div>
