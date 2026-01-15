@@ -34,7 +34,6 @@ export default function Sidebar({ activeTab, setActiveTab, handleLogout, familyN
           <button onClick={() => setActiveTab('investments')} className={`flex flex-col items-center p-1 rounded-lg ${activeTab === 'investments' ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-gray-700' : 'text-gray-400 dark:text-gray-500'}`}><Briefcase size={20}/><span className="text-[9px] font-bold mt-0.5">Investir</span></button>
           <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center p-1 rounded-lg ${activeTab === 'settings' ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-gray-700' : 'text-gray-400 dark:text-gray-500'}`}><Lock size={20}/><span className="text-[9px] font-bold mt-0.5">Config</span></button>
       </div>
-      </div>
     </>
   );
 }
