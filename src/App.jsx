@@ -73,7 +73,7 @@ export default function App() {
   const [withdrawModal, setWithdrawModal] = useState({ show: false, type: '', id: null, name: '' });
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', reason: '' });
   const [incomeForm, setIncomeForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '' });
-  const [expenseForm, setExpenseForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '', paymentMethod: 'Cartão de Crédito', installments: '1' });
+  const [expenseForm, setExpenseForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '', paymentMethod: 'Cartão de Crédito', installments: '1', isInstallmentValue: false });
   const [goalForm, setGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', description: '' });
   const [investmentForm, setInvestmentForm] = useState({ name: '', initialAmount: '' });
   const [newExpenseCat, setNewExpenseCat] = useState('');
@@ -236,54 +236,121 @@ export default function App() {
     }
   };
 
-  const addTransaction = (type) => {
+  // --- FUNÇÃO ADD TRANSACTION TURBINADA COM PARCELAMENTO ---
+  // --- FUNÇÃO ADD TRANSACTION TURBINADA COM PARCELAMENTO E CHECKBOX ---
+  const addTransaction = async (type) => {
     try {
       const isExpense = type === 'expense' || type === 'despesa';
       const form = isExpense ? expenseForm : incomeForm;
       
       if (!form.description || !form.amount) return alert('Preencha os dados.');
       
-      const val = parseFloat(form.amount.toString().replace(/\./g, '').replace(',', '.'));
-      if (isNaN(val) || val <= 0) return alert("Valor inválido.");
+      // Valor digitado (pode ser total ou parcela, depende do checkbox)
+      const inputVal = parseFloat(form.amount.toString().replace(/\./g, '').replace(',', '.'));
+      if (isNaN(inputVal) || inputVal <= 0) return alert("Valor inválido.");
       
       const fid = currentUser.familyId;
-      // SE TEM EDITING_ID, USA ELE. SE NÃO, CRIA UM NOVO BASEADO NA DATA.
-      const id = editingId || Date.now().toString(); 
-      
       const metaData = { createdBy: currentUser.uid, authorName: currentUser.name || 'Membro' };
+      
+      const installmentsStr = form.installments ? form.installments.toString() : '1';
+      const numInstallments = isExpense ? (parseInt(installmentsStr) || 1) : 1;
 
-      // Salvando no Firebase (Set serve tanto para criar quanto para sobrescrever/editar)
-      set(ref(db, `families/${fid}/transactions/${id}`), { 
-        id, 
-        type: isExpense ? 'despesa' : 'receita', 
-        description: form.description, 
-        amount: form.amount, 
-        value: val, 
-        date: form.date, 
-        category: form.category || (isExpense ? expenseCategories[0] : incomeCategories[0]),
-        paymentMethod: isExpense ? (form.paymentMethod || 'Cartão de Crédito') : null, 
-        installments: isExpense ? (form.installments || '1') : null,
-        ...metaData 
-      }).then(() => {
-        // Limpeza dos campos
-        if (isExpense) {
-          setExpenseForm({ 
-            date: new Date().toISOString().split('T')[0], description: '', amount: '', 
-            category: expenseCategories[0], paymentMethod: 'Cartão de Crédito', installments: '1' 
-          });
-          showToast(editingId ? "Despesa atualizada!" : "Despesa adicionada!", "success");
+      // --- CENÁRIO 1: EDIÇÃO OU PARCELA ÚNICA ---
+      if (editingId || numInstallments === 1) {
+        const id = editingId || Date.now().toString();
+        // Se for parcela única, o valor digitado é o valor final mesmo
+        await set(ref(db, `families/${fid}/transactions/${id}`), { 
+          id, 
+          type: isExpense ? 'despesa' : 'receita', 
+          description: form.description, 
+          amount: form.amount, 
+          value: inputVal, 
+          date: form.date, 
+          category: form.category || (isExpense ? expenseCategories[0] : incomeCategories[0]),
+          paymentMethod: isExpense ? (form.paymentMethod || 'Cartão de Crédito') : null, 
+          installments: isExpense ? installmentsStr : null,
+          ...metaData 
+        });
+        finishTransaction(isExpense);
+      } 
+      // --- CENÁRIO 2: DESPESA PARCELADA AUTOMÁTICA ---
+      else {
+        const groupId = Date.now().toString();
+        const baseDate = new Date(form.date + 'T12:00:00');
+        const updates = {};
+
+        // CÁLCULO MÁGICO DO VALOR
+        let baseInstallmentValue = 0;
+        let remainder = 0;
+
+        if (form.isInstallmentValue) {
+          // OPÇÃO A: Valor digitado É A PARCELA (Ex: 85,71)
+          baseInstallmentValue = inputVal;
+          remainder = 0; // Não tem sobra, todas são iguais
         } else {
-          setIncomeForm({ 
-            date: new Date().toISOString().split('T')[0], description: '', amount: '', 
-            category: incomeCategories[0] 
-          });
-          showToast(editingId ? "Receita atualizada!" : "Receita adicionada!", "success");
+          // OPÇÃO B: Valor digitado É O TOTAL (Ex: 600,00)
+          baseInstallmentValue = Math.floor((inputVal / numInstallments) * 100) / 100;
+          remainder = Math.round((inputVal - (baseInstallmentValue * numInstallments)) * 100) / 100;
         }
-        setEditingId(null); // Sai do modo de edição
-      });
-    } catch { 
+
+        for (let i = 0; i < numInstallments; i++) {
+          const parcelId = (parseInt(groupId) + i).toString();
+          
+          // Data: Avança mês a mês
+          const parcelDate = new Date(baseDate);
+          parcelDate.setMonth(baseDate.getMonth() + i);
+          const dateStr = parcelDate.toISOString().split('T')[0];
+
+          // Se for a última e tiver sobra de centavos (apenas no modo Total), soma aqui
+          const isLast = i === numInstallments - 1;
+          const thisParcelValue = isLast ? (baseInstallmentValue + remainder) : baseInstallmentValue;
+          
+          const amountStr = thisParcelValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+          const transactionData = {
+            id: parcelId,
+            type: 'despesa',
+            description: `${form.description} (${i + 1}/${numInstallments})`,
+            amount: amountStr,
+            value: thisParcelValue,
+            date: dateStr,
+            category: form.category || expenseCategories[0],
+            paymentMethod: form.paymentMethod || 'Cartão de Crédito',
+            installments: installmentsStr,
+            installmentGroupId: groupId,
+            installmentIndex: i + 1,
+            ...metaData
+          };
+
+          updates[`families/${fid}/transactions/${parcelId}`] = transactionData;
+        }
+
+        await update(ref(db), updates);
+        finishTransaction(isExpense);
+      }
+    } catch (error) { 
+      console.error(error);
       showToast("Erro ao salvar", "error"); 
     }
+  };
+
+  // Atualize também o finishTransaction para limpar o checkbox
+  const finishTransaction = (isExpense) => {
+    if (isExpense) {
+      setExpenseForm({ 
+        date: new Date().toISOString().split('T')[0], description: '', amount: '', 
+        category: expenseCategories[0], paymentMethod: 'Cartão de Crédito', installments: '1',
+        isInstallmentValue: false // <--- LIMPANDO O CHECKBOX
+      });
+      showToast(editingId ? "Despesa atualizada!" : "Despesa parcelada lançada!", "success");
+    } else {
+      setIncomeForm({ 
+        date: new Date().toISOString().split('T')[0], description: '', amount: '', 
+        category: incomeCategories[0] 
+      });
+      showToast(editingId ? "Receita atualizada!" : "Receita adicionada!", "success");
+    }
+    setEditingId(null);
   };
 
   const removeTransaction = (id) => { 

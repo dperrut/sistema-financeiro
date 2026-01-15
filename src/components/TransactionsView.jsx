@@ -80,15 +80,20 @@ export default function TransactionsView({
             </div>
           </div>
 
-          {/* Linha de Despesa (MODO ESCURO APLICADO) */}
+          {/* Linha de Despesa (CORRIGIDA: Layout Horizontal e Checkbox Visível) */}
+          {/* Linha de Despesa (AJUSTE FINAL: Botão Toggle no lugar de Checkbox) */}
           <div className="bg-white dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-red-500 transition-colors duration-300">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+              
               <div className="md:col-span-1 text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase text-center">Despesa</div>
-              <input className="md:col-span-3 p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-red-400 transition-colors" placeholder="Descrição" value={expenseForm.description} onChange={e=>setExpenseForm({...expenseForm, description:e.target.value})}/>
-              <div className="md:col-span-2 flex gap-1">
-                
+              
+              {/* Reduzi um pouco a descrição (col-span-3 -> col-span-2) para dar espaço aos valores */}
+              <input className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-red-400 transition-colors" placeholder="Descrição" value={expenseForm.description} onChange={e=>setExpenseForm({...expenseForm, description:e.target.value})}/>
+              
+              {/* BLOCO DE VALORES (Agora ocupa 3 colunas para caber tudo folgado) */}
+              <div className="md:col-span-3 flex items-center gap-1">
                 <input 
-                  className="w-full p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-red-400 transition-colors" 
+                  className="flex-1 w-full p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-red-400 transition-colors" 
                   type="text" 
                   placeholder="R$ 0,00" 
                   value={expenseForm.amount} 
@@ -97,25 +102,45 @@ export default function TransactionsView({
                 
                 <input 
                   disabled={!!editingId} 
-                  className="w-16 p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 text-center transition-colors placeholder-gray-400 focus:outline-none focus:border-red-400" 
-                  title="Parcelas" 
+                  className="w-12 p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 text-center transition-colors placeholder-gray-400 focus:outline-none focus:border-red-400" 
+                  title="Qtd Parcelas" 
                   placeholder="1x" 
                   type="text" 
                   inputMode="numeric"
                   maxLength={3}
                   value={expenseForm.installments} 
                   onChange={e => {
-                    // Permite apenas números
                     const val = e.target.value.replace(/\D/g, '');
                     setExpenseForm({...expenseForm, installments: val});
                   }}
                 />
+
+                {/* BOTÃO TOGGLE (Substitui o Checkbox) */}
+                {/* BOTÃO TOGGLE (LIVRE: Pode clicar a qualquer momento) */}
+                <button
+                  type="button"
+                  onClick={() => setExpenseForm({...expenseForm, isInstallmentValue: !expenseForm.isInstallmentValue})}
+                  disabled={!!editingId} 
+                  className={`
+                    h-9 px-2 rounded-lg text-[9px] font-bold leading-tight uppercase transition-all border border-gray-200 dark:border-gray-600
+                    ${expenseForm.isInstallmentValue 
+                      ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800' 
+                      : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}
+                    ${!!editingId ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}
+                  `}
+                  title="Clique para alternar: Valor Total ou Valor da Parcela"
+                >
+                  {expenseForm.isInstallmentValue ? 'Valor\nParcela' : 'Valor\nTotal'}
+                </button>
               </div>
+
               <select className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-red-400 transition-colors" value={expenseForm.category} onChange={e=>setExpenseForm({...expenseForm, category:e.target.value})}>
                 {expenseCategories.map(c=><option key={c} value={c}>{c}</option>)}
               </select>
+              
               <input className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-red-400 transition-colors" type="date" value={expenseForm.date} onChange={e=>setExpenseForm({...expenseForm, date:e.target.value})}/>
-              <button onClick={()=>addTransaction('expense')} className="md:col-span-2 bg-red-600 text-white p-2 rounded-lg text-sm font-bold hover:bg-red-700 transition-all active:scale-95 shadow-sm">
+              
+              <button onClick={()=>addTransaction('expense')} className="md:col-span-2 bg-red-600 text-white p-2 rounded-lg text-sm font-bold hover:bg-red-700 transition-all active:scale-95 shadow-sm h-[38px]">
                 {editingId ? 'Salvar' : '+ Despesa'}
               </button>
             </div>
