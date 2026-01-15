@@ -240,57 +240,82 @@ export default function App() {
     try {
       const isExpense = type === 'expense' || type === 'despesa';
       const form = isExpense ? expenseForm : incomeForm;
-
+      
       if (!form.description || !form.amount) return alert('Preencha os dados.');
-
+      
       const val = parseFloat(form.amount.toString().replace(/\./g, '').replace(',', '.'));
       if (isNaN(val) || val <= 0) return alert("Valor inválido.");
-
+      
       const fid = currentUser.familyId;
-      const id = Date.now().toString();
+      // SE TEM EDITING_ID, USA ELE. SE NÃO, CRIA UM NOVO BASEADO NA DATA.
+      const id = editingId || Date.now().toString(); 
+      
       const metaData = { createdBy: currentUser.uid, authorName: currentUser.name || 'Membro' };
 
-      // Salvando no Firebase
-      set(ref(db, `families/${fid}/transactions/${id}`), {
-        id,
-        type: isExpense ? 'despesa' : 'receita',
-        description: form.description,
-        amount: form.amount,
-        value: val,
-        date: form.date,
+      // Salvando no Firebase (Set serve tanto para criar quanto para sobrescrever/editar)
+      set(ref(db, `families/${fid}/transactions/${id}`), { 
+        id, 
+        type: isExpense ? 'despesa' : 'receita', 
+        description: form.description, 
+        amount: form.amount, 
+        value: val, 
+        date: form.date, 
         category: form.category || (isExpense ? expenseCategories[0] : incomeCategories[0]),
-        paymentMethod: isExpense ? (form.paymentMethod || 'Cartão de Crédito') : null,
-        ...metaData
+        paymentMethod: isExpense ? (form.paymentMethod || 'Cartão de Crédito') : null, 
+        installments: isExpense ? (form.installments || '1') : null,
+        ...metaData 
       }).then(() => {
-        // --- AQUI ESTÁ A CORREÇÃO: LIMPANDO OS CAMPOS ---
+        // Limpeza dos campos
         if (isExpense) {
-          setExpenseForm({
-            date: new Date().toISOString().split('T')[0],
-            description: '',
-            amount: '',
-            category: expenseCategories[0],
-            paymentMethod: 'Cartão de Crédito',
-            installments: '1'
+          setExpenseForm({ 
+            date: new Date().toISOString().split('T')[0], description: '', amount: '', 
+            category: expenseCategories[0], paymentMethod: 'Cartão de Crédito', installments: '1' 
           });
-          showToast("Despesa adicionada!", "success");
+          showToast(editingId ? "Despesa atualizada!" : "Despesa adicionada!", "success");
         } else {
-          setIncomeForm({
-            date: new Date().toISOString().split('T')[0],
-            description: '',
-            amount: '',
-            category: incomeCategories[0]
+          setIncomeForm({ 
+            date: new Date().toISOString().split('T')[0], description: '', amount: '', 
+            category: incomeCategories[0] 
           });
-          showToast("Receita adicionada!", "success");
+          showToast(editingId ? "Receita atualizada!" : "Receita adicionada!", "success");
         }
+        setEditingId(null); // Sai do modo de edição
       });
-    } catch {
-      showToast("Erro ao salvar", "error");
+    } catch { 
+      showToast("Erro ao salvar", "error"); 
     }
   };
 
-  const removeTransaction = (id) => { remove(ref(db, `families/${currentUser.familyId}/transactions/${id}`)); };
+  const removeTransaction = (id) => { 
+    if (window.confirm("Tem certeza que deseja excluir este lançamento?")) {
+      remove(ref(db, `families/${currentUser.familyId}/transactions/${id}`)); 
+      showToast("Lançamento excluído.", "success");
+    }
+  };
 
-  const startEditing = (t) => { setEditingId(t.id); setActiveTab('transactions'); };
+  const startEditing = (t) => { 
+    setEditingId(t.id); 
+    setActiveTab('transactions');
+    
+    // Preenche o formulário correto com os dados do item clicado
+    if (t.type === 'receita') {
+      setIncomeForm({
+        date: t.date,
+        description: t.description,
+        amount: t.amount, // Mantém a string formatada se possível, ou usa o valor
+        category: t.category
+      });
+    } else {
+      setExpenseForm({
+        date: t.date,
+        description: t.description,
+        amount: t.amount,
+        category: t.category,
+        paymentMethod: t.paymentMethod || 'Cartão de Crédito',
+        installments: t.installments || '1'
+      });
+    }
+  };
 
   const addGoal = async () => {
     // TRAVA DE SEGURANÇA: Verifica se os campos principais estão vazios

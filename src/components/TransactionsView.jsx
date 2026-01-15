@@ -95,7 +95,21 @@ export default function TransactionsView({
                   onChange={(e) => handleCurrencyChange(e, setExpenseForm, expenseForm, 'amount')} 
                 />
                 
-                <input disabled={!!editingId} className="w-10 p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 text-center transition-colors" title="Parcelas" type="number" value={expenseForm.installments} onChange={e=>setExpenseForm({...expenseForm, installments:e.target.value})}/>
+                <input 
+                  disabled={!!editingId} 
+                  className="w-16 p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 text-center transition-colors placeholder-gray-400 focus:outline-none focus:border-red-400" 
+                  title="Parcelas" 
+                  placeholder="1x" 
+                  type="text" 
+                  inputMode="numeric"
+                  maxLength={3}
+                  value={expenseForm.installments} 
+                  onChange={e => {
+                    // Permite apenas números
+                    const val = e.target.value.replace(/\D/g, '');
+                    setExpenseForm({...expenseForm, installments: val});
+                  }}
+                />
               </div>
               <select className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-red-400 transition-colors" value={expenseForm.category} onChange={e=>setExpenseForm({...expenseForm, category:e.target.value})}>
                 {expenseCategories.map(c=><option key={c} value={c}>{c}</option>)}
