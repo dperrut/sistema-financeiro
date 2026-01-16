@@ -843,7 +843,7 @@ export default function App() {
     
     const accBalance = transactions
       .filter(t => t.date <= todayStr) // <--- O PULO DO GATO: Ignora parcelas futuras
-      .reduce((acc, c) =>git
+      .reduce((acc, c) =>
         c.type === 'receita' ? acc + Number(c.value) : acc - Number(c.value), 0);
 
     const goalsTotal = goals.reduce((acc, c) => acc + (Number(c.currentAmount) || 0), 0);
