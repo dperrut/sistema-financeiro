@@ -838,9 +838,13 @@ export default function App() {
       .filter(t => t.type === 'despesa' && t.category !== 'Aporte')
       .reduce((acc, c) => acc + Number(c.value), 0);
 
-    // SALDO DISPONÍVEL (LIVRE): Aqui entra a matemática pura de todas as transações
-    const accBalance = transactions.reduce((acc, c) =>
-      c.type === 'receita' ? acc + Number(c.value) : acc - Number(c.value), 0);
+    // SALDO DISPONÍVEL (LIVRE): Filtra apenas o que já aconteceu (até hoje)
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    const accBalance = transactions
+      .filter(t => t.date <= todayStr) // <--- O PULO DO GATO: Ignora parcelas futuras
+      .reduce((acc, c) =>git
+        c.type === 'receita' ? acc + Number(c.value) : acc - Number(c.value), 0);
 
     const goalsTotal = goals.reduce((acc, c) => acc + (Number(c.currentAmount) || 0), 0);
     const investTotal = investments.reduce((acc, c) => acc + (Number(c.currentAmount) || 0), 0);
