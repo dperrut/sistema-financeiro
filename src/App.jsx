@@ -55,18 +55,26 @@ export default function App() {
     show: false, action: '', type: '', id: null, name: ''
   });
   const [transactionForm, setTransactionForm] = useState({ amount: '' });
-  // --- LÓGICA DO MODO ESCURO (DARK MODE) ---
-  const [darkMode, setDarkMode] = useState(false);
-  // Estado para o Modal de Antecipação
+
+// --- LÓGICA DO MODO ESCURO (DARK MODE PERSISTENTE) ---
+  const [darkMode, setDarkMode] = useState(() => {
+    // Ao iniciar, busca se já existe preferência salva
+    const saved = localStorage.getItem('finances_theme');
+    return saved === 'dark';
+  });
+  
+  // Estado para o Modal de Antecipação (MANTIDO AQUI!)
   const [anticipateModal, setAnticipateModal] = useState({ show: false, transaction: null });
   const [anticipateCount, setAnticipateCount] = useState(1);
 
-  // Efeito que aplica a classe 'dark' no HTML do site
+  // Efeito que aplica a classe E SALVA a preferência
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
+      localStorage.setItem('finances_theme', 'dark'); // Salva 'dark'
     } else {
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('finances_theme', 'light'); // Salva 'light'
     }
   }, [darkMode]);
 
