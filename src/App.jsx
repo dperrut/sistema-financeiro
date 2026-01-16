@@ -84,7 +84,16 @@ export default function App() {
   const [withdrawModal, setWithdrawModal] = useState({ show: false, type: '', id: null, name: '' });
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', reason: '' });
   const [incomeForm, setIncomeForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '' });
-  const [expenseForm, setExpenseForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '', paymentMethod: 'Cartão de Crédito', installments: '1', isInstallmentValue: false });
+  const [expenseForm, setExpenseForm] = useState({ 
+    date: new Date().toISOString().split('T')[0], 
+    description: '', 
+    amount: '', 
+    category: '', 
+    paymentMethod: 'Cartão de Crédito', 
+    installments: '1', 
+    isInstallmentValue: false,
+    isFixed: false // <--- CAMPO NOVO AQUI
+  });
   const [goalForm, setGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', description: '' });
   const [investmentForm, setInvestmentForm] = useState({ name: '', initialAmount: '' });
   const [newExpenseCat, setNewExpenseCat] = useState('');
@@ -123,7 +132,10 @@ export default function App() {
               familyId: profile.familyId
             };
             setCurrentUser(userData);
-            if (profile.familyId) listenToFamilyData(profile.familyId);
+            if (profile.familyId) {
+              listenToFamilyData(profile.familyId);
+              checkRecurrences(profile.familyId); // <--- ROBÔ ACORDA AQUI
+            }
           } else {
             setCurrentUser({ uid: user.uid, email: user.email, name: user.displayName });
           }
@@ -267,10 +279,11 @@ export default function App() {
       const numInstallments = isExpense ? (parseInt(installmentsStr) || 1) : 1;
 
       // --- CENÁRIO 1: EDIÇÃO OU PARCELA ÚNICA ---
-      if (editingId || numInstallments === 1) {
+      // --- CENÁRIO 1: EDIÇÃO, PARCELA ÚNICA OU DESPESA FIXA ---
+      if (editingId || numInstallments === 1 || form.isFixed) {
         const id = editingId || Date.now().toString();
-        // Se for parcela única, o valor digitado é o valor final mesmo
-        await set(ref(db, `families/${fid}/transactions/${id}`), { 
+        
+        const transactionData = { 
           id, 
           type: isExpense ? 'despesa' : 'receita', 
           description: form.description, 
@@ -279,11 +292,36 @@ export default function App() {
           date: form.date, 
           category: form.category || (isExpense ? expenseCategories[0] : incomeCategories[0]),
           paymentMethod: isExpense ? (form.paymentMethod || 'Cartão de Crédito') : null, 
-          installments: isExpense ? installmentsStr : null,
+          installments: isExpense && !form.isFixed ? installmentsStr : null, // Se for fixa, não tem "1x"
+          isFixed: form.isFixed || false, // Marca no histórico que é fixa
           ...metaData 
-        });
+        };
+
+        // 1. Salva a transação atual (Extrato de hoje)
+        await set(ref(db, `families/${fid}/transactions/${id}`), transactionData);
+
+        // 2. SE FOR UMA NOVA DESPESA FIXA (e não estamos editando uma antiga)
+        // Cria o "Contrato de Recorrência" para o futuro
+        if (form.isFixed && !editingId) {
+          const recurrenceId = `rec_${id}`;
+          const recurrenceData = {
+            id: recurrenceId,
+            description: form.description,
+            amount: form.amount,
+            value: inputVal,
+            category: transactionData.category,
+            paymentMethod: transactionData.paymentMethod,
+            day: parseInt(form.date.split('-')[2]), // Salva o dia do vencimento (ex: dia 10)
+            lastProcessedDate: form.date, // Marca que o mês atual já foi lançado
+            active: true,
+            createdAt: new Date().toISOString()
+          };
+          await set(ref(db, `families/${fid}/recurrences/${recurrenceId}`), recurrenceData);
+          showToast("Recorrência automática criada!", "success");
+        }
+
         finishTransaction(isExpense);
-      } 
+      }
       // --- CENÁRIO 2: DESPESA PARCELADA AUTOMÁTICA ---
       else {
         const groupId = Date.now().toString();
@@ -351,7 +389,8 @@ export default function App() {
       setExpenseForm({ 
         date: new Date().toISOString().split('T')[0], description: '', amount: '', 
         category: expenseCategories[0], paymentMethod: 'Cartão de Crédito', installments: '1',
-        isInstallmentValue: false // <--- LIMPANDO O CHECKBOX
+        isInstallmentValue: false,
+        isFixed: false // <--- RESETANDO AQUI TAMBÉM
       });
       showToast(editingId ? "Despesa atualizada!" : "Despesa parcelada lançada!", "success");
     } else {
@@ -825,6 +864,89 @@ export default function App() {
     } catch (error) {
       console.error(error);
       showToast("Erro ao antecipar parcelas.", "error");
+    }
+  };
+
+  // --- ROBÔ DE RECORRÊNCIA (COM RASTREADOR 🤖) ---
+  const checkRecurrences = async (fid) => {
+    console.log("🤖 [1/5] ROBÔ ACORDOU! Verificando família:", fid);
+    
+    try {
+      const recRef = ref(db, `families/${fid}/recurrences`);
+      const snapshot = await get(recRef);
+      
+      if (!snapshot.exists()) {
+        console.warn("🤖 [FALHA] Nenhuma recorrência encontrada no banco de dados.");
+        return;
+      }
+      
+      const recurrences = snapshot.val();
+      console.log("🤖 [2/5] Recorrências encontradas:", recurrences);
+      
+      const updates = {};
+      let count = 0;
+      const today = new Date();
+      console.log("🤖 [3/5] Data de hoje para comparação:", today);
+
+      Object.values(recurrences).forEach(rec => {
+        if (!rec.active) {
+            console.log(`🤖 Ignorando recorrência inativa: ${rec.description}`);
+            return;
+        }
+
+        console.log(`🤖 [4/5] Analisando conta: ${rec.description} | Último lançamento: ${rec.lastProcessedDate}`);
+
+        let lastDate = new Date(rec.lastProcessedDate + 'T12:00:00');
+        
+        for (let i = 0; i < 12; i++) {
+          const nextDate = new Date(lastDate);
+          nextDate.setMonth(nextDate.getMonth() + 1);
+          nextDate.setDate(rec.day);
+
+          console.log(`   -> Testando data alvo: ${nextDate.toISOString().split('T')[0]}...`);
+
+          if (nextDate <= today) {
+            console.log("      ✅ VENCEU! Criando lançamento...");
+            
+            const newId = Date.now().toString() + Math.random().toString().slice(2, 5);
+            const dateStr = nextDate.toISOString().split('T')[0];
+
+            updates[`families/${fid}/transactions/${newId}`] = {
+              id: newId,
+              type: 'despesa',
+              description: rec.description,
+              amount: rec.amount,
+              value: rec.value,
+              date: dateStr,
+              category: rec.category,
+              paymentMethod: rec.paymentMethod,
+              isFixed: true,
+              recurrenceId: rec.id,
+              createdBy: 'system',
+              authorName: 'Recorrência'
+            };
+
+            updates[`families/${fid}/recurrences/${rec.id}/lastProcessedDate`] = dateStr;
+            
+            lastDate = nextDate;
+            count++;
+          } else {
+            console.log("      ❌ AINDA NÃO VENCEU. Parando por aqui.");
+            break;
+          }
+        }
+      });
+
+      if (count > 0) {
+        console.log(`🤖 [5/5] Salvando ${count} novas transações no banco...`);
+        await update(ref(db), updates);
+        showToast(`${count} contas fixas lançadas automaticamente!`, "success");
+      } else {
+        console.log("🤖 [5/5] Nada para lançar hoje.");
+      }
+
+    } catch (error) {
+      console.error("🔥 ERRO CRÍTICO NO ROBÔ:", error);
     }
   };
 

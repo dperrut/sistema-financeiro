@@ -1,6 +1,8 @@
 // --- COMPONENTE: TELA DE CONFIGURAÇÕES (VERSÃO COMPACTA) ---
-import React from 'react';
-import { Users, Eye, Edit, LogIn, List, XCircle, Upload, AlertTriangle, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, Eye, Edit, LogIn, List, XCircle, Upload, AlertTriangle, Trash2, CreditCard, Calendar, Plus } from 'lucide-react';
+import { ref, update, push, remove, onValue } from 'firebase/database';
+import { db } from '../firebase';
 
 export default function SettingsView({ 
   currentUser, familyPin, handleEditPin, 
@@ -9,6 +11,84 @@ export default function SettingsView({
   newExpenseCat, setNewExpenseCat, expenseCategories,
   importDataToFirebase, resetAllData, handleExportData
 }) {
+
+  // Cores disponíveis para os cartões (Tailwind classes)
+  const CARD_COLORS = [
+    "from-purple-600 to-indigo-600",   // Roxo (Nubank)
+    "from-gray-800 to-black",          // Preto (Black/Carbon)
+    "from-orange-500 to-red-500",      // Laranja (Inter)
+    "from-blue-600 to-cyan-500",       // Azul (Caixa/Visa)
+    "from-emerald-500 to-teal-600",    // Verde (Stone/Next)
+    "from-red-600 to-rose-700",        // Vermelho (Santander)
+    "from-yellow-500 to-amber-600",    // Dourado (Gold)
+    "from-pink-500 to-rose-500"        // Rosa
+  ];
+
+// --- LÓGICA DE CARTÕES DE CRÉDITO (NOVO) ---
+  const [creditCards, setCreditCards] = useState([]);
+  // --- LÓGICA ATUALIZADA ---
+  const [newCard, setNewCard] = useState({ name: '', closingDay: '', dueDay: '', last4: '', holder: '' });
+
+  // Carrega os cartões ao iniciar
+  useEffect(() => {
+    if (currentUser?.familyId) {
+      const cardsRef = ref(db, `families/${currentUser.familyId}/creditCards`);
+      const unsubscribe = onValue(cardsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const cardsList = Object.entries(data).map(([key, val]) => ({ id: key, ...val }));
+          setCreditCards(cardsList);
+        } else {
+          setCreditCards([]);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [currentUser]);
+
+  const handleAddCard = async () => {
+    if (!newCard.name || !newCard.closingDay || !newCard.dueDay) return alert("Preencha os dados principais.");
+    
+    const close = parseInt(newCard.closingDay);
+    const due = parseInt(newCard.dueDay);
+    
+    if (newCard.last4 && newCard.last4.length !== 4) return alert("Digite exatamente os 4 últimos dígitos.");
+    if (close < 1 || close > 31 || due < 1 || due > 31) return alert("Dias inválidos.");
+
+    try {
+      const newCardRef = push(ref(db, `families/${currentUser.familyId}/creditCards`));
+      await update(newCardRef, { 
+        name: newCard.name, 
+        holder: newCard.holder || currentUser.name.split(' ')[0].toUpperCase(), // Usa o nome do usuário se não preencher
+        closingDay: close, 
+        dueDay: due,
+        last4: newCard.last4 || '0000',
+        color: CARD_COLORS[0] 
+      });
+      setNewCard({ name: '', closingDay: '', dueDay: '', last4: '', holder: '' });
+    } catch (error) { console.error(error); alert("Erro ao salvar cartão."); }
+  };
+
+  const handleDeleteCard = async (id) => {
+    if (window.confirm("Excluir este cartão?")) {
+      await remove(ref(db, `families/${currentUser.familyId}/creditCards/${id}`));
+    }
+  };  
+
+  const handleCycleColor = async (card) => {
+    // 1. Descobre o índice da cor atual
+    const currentIndex = CARD_COLORS.indexOf(card.color || CARD_COLORS[0]);
+    
+    // 2. Pega a próxima cor (se for a última, volta pra primeira)
+    const nextIndex = (currentIndex + 1) % CARD_COLORS.length;
+    const nextColor = CARD_COLORS[nextIndex];
+
+    // 3. Atualiza no banco
+    await update(ref(db, `families/${currentUser.familyId}/creditCards/${card.id}`), {
+      color: nextColor
+    });
+  };
+
   return (
     // REDUZIDO: space-y-4 -> space-y-3 e pb-10 -> pb-4
     <div className="max-w-6xl mx-auto space-y-3 pb-4">
@@ -72,6 +152,169 @@ export default function SettingsView({
             <button onClick={handleJoinFamily} className="bg-blue-600 dark:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 dark:hover:bg-blue-600 text-xs transition-colors">Entrar</button>
           </div>
         </div>
+      </div>
+
+      {/* 1.5. GESTÃO DE CARTÕES DE CRÉDITO (VISUAL PREMIUM) */}
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
+        <h3 className="font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2 border-b border-gray-100 dark:border-gray-700 pb-2 text-sm">
+          <CreditCard size={18} className="text-purple-500"/> Meus Cartões
+        </h3>
+        
+        {/* CARROSSEL DE CARTÕES (COMPACTO & COM TITULAR) */}
+        <div className="flex overflow-x-auto gap-3 mb-6 pb-2 snap-x snap-mandatory px-1 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
+          
+          {creditCards.map((card) => {
+            const bgClass = card.color || CARD_COLORS[0]; 
+
+            return (
+              // REDUZI: min-w-[300px] -> 280px | h-48 -> h-40 | p-5 -> p-4
+              <div key={card.id} className={`relative min-w-[280px] h-40 rounded-xl p-4 shadow-md text-white bg-gradient-to-br ${bgClass} flex flex-col justify-between transform transition-transform hover:scale-[1.01] snap-center group`}>
+                
+                {/* Topo: Nome do Banco e Ações */}
+                <div className="flex justify-between items-start">
+                  <div className="flex flex-col">
+                    <span className="font-bold tracking-wider opacity-90 text-sm truncate w-36" title={card.name}>{card.name}</span>
+                    {/* Exibe o TITULAR aqui ou embaixo */}
+                  </div>
+                  <div className="flex gap-1">
+                    <button onClick={() => handleCycleColor(card)} className="bg-white/20 p-1.5 rounded-full hover:bg-white/40 transition-colors" title="Mudar Cor">
+                      <div className="w-3 h-3 rounded-full bg-gradient-to-tr from-yellow-400 via-red-400 to-blue-400"></div>
+                    </button>
+                    <button onClick={() => handleDeleteCard(card.id)} className="bg-white/20 p-1.5 rounded-full hover:bg-red-500/80 transition-colors">
+                      <Trash2 size={14} className="text-white"/>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Meio: Chip e Número */}
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-6 bg-yellow-400/80 rounded flex items-center justify-center border border-yellow-600/50 shadow-inner relative overflow-hidden">
+                    <div className="w-full h-[1px] bg-yellow-600/50 absolute top-1/2 -translate-y-1/2"></div>
+                    <div className="h-full w-[1px] bg-yellow-600/50 absolute left-1/2 -translate-x-1/2"></div>
+                  </div>
+                  {/* Ícone NFC */}
+                  <div className="flex flex-col gap-0.5 items-start opacity-60">
+                     <span className="w-2 h-2 rounded-full border-r-2 border-white/80"></span>
+                     <span className="w-1.5 h-1.5 rounded-full border-r-2 border-white/80 -mt-1.5 ml-0.5"></span>
+                  </div>
+                  {/* Número */}
+                  <div className="font-mono text-lg tracking-[0.15em] text-white/90 ml-auto">
+                    •••• {card.last4 || '0000'}
+                  </div>
+                </div>
+
+                {/* Base: Titular e Datas */}
+                <div className="flex justify-between items-end text-[9px] uppercase font-bold text-white/80">
+                  <div className="flex flex-col">
+                    <span className="text-[7px] opacity-60 mb-0.5">Titular</span>
+                    <span className="text-xs tracking-widest truncate max-w-[120px]">{card.holder || 'MEMBRO'}</span>
+                  </div>
+                  <div className="flex gap-3 text-right">
+                    <div>
+                      <span className="block text-[6px] opacity-60">Fecha</span>
+                      <span className="text-xs">{card.closingDay}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[6px] opacity-60">Vence</span>
+                      <span className="text-xs">{card.dueDay}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Brilho Decorativo */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+              </div>
+            );
+          })}
+          
+          {/* Placeholder Compacto */}
+          {creditCards.length === 0 && (
+            <div className="min-w-[280px] h-40 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 text-sm flex-col gap-2 snap-center">
+              <CreditCard size={32} className="opacity-30"/>
+              <p className="text-xs opacity-70">Sua carteira está vazia.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Formulário Novo Cartão (Layout Otimizado v3) */}
+        <div className="bg-gray-50 dark:bg-gray-700/30 p-3 rounded-xl border border-gray-100 dark:border-gray-600">
+          <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase">Adicionar Novo Cartão</p>
+          <div className="flex flex-col gap-2">
+            
+            {/* Linha 1: Titular e Final do Cartão */}
+            <div className="flex gap-2">
+              <div className="flex-[3]">
+                <label className="text-[9px] font-bold text-gray-400 uppercase ml-1">Nome do Titular</label>
+                <input 
+                  className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white text-xs outline-none focus:border-purple-400 transition-colors uppercase" 
+                  placeholder="Ex: JOAO SILVA" 
+                  value={newCard.holder} 
+                  onChange={e => setNewCard({...newCard, holder: e.target.value})} 
+                />
+              </div>
+              <div className="flex-1 min-w-[80px]">
+                <label className="text-[9px] font-bold text-gray-400 uppercase ml-1">Últimos 4</label>
+                <input 
+                  type="text" 
+                  maxLength="4" 
+                  className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white text-xs text-center outline-none focus:border-purple-400 transition-colors font-mono" 
+                  placeholder="1234" 
+                  value={newCard.last4} 
+                  onChange={e => setNewCard({...newCard, last4: e.target.value.replace(/\D/g,'')})} 
+                />
+              </div>
+            </div>
+
+            {/* Linha 2: Nome do Cartão, Datas e Botão */}
+            <div className="flex gap-2 items-end">
+              <div className="flex-[2]">
+                <label className="text-[9px] font-bold text-gray-400 uppercase ml-1">Nome do Cartão</label>
+                <input 
+                  className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white text-xs outline-none focus:border-purple-400 transition-colors" 
+                  placeholder="Ex: Nubank" 
+                  value={newCard.name} 
+                  onChange={e => setNewCard({...newCard, name: e.target.value})} 
+                />
+              </div>
+              
+              <div className="w-20">
+                <label className="text-[9px] font-bold text-gray-400 uppercase ml-1 truncate" title="Data Fechamento">Fechamento</label>
+                <select 
+                  className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white text-xs text-center outline-none focus:border-purple-400 transition-colors cursor-pointer"
+                  value={newCard.closingDay} 
+                  onChange={e => setNewCard({...newCard, closingDay: e.target.value})}
+                >
+                  <option value="">Dia</option>
+                  {Array.from({length: 31}, (_, i) => i + 1).map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="w-20">
+                <label className="text-[9px] font-bold text-gray-400 uppercase ml-1 truncate" title="Data Vencimento">Vencimento</label>
+                <select 
+                  className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white text-xs text-center outline-none focus:border-purple-400 transition-colors cursor-pointer"
+                  value={newCard.dueDay} 
+                  onChange={e => setNewCard({...newCard, dueDay: e.target.value})}
+                >
+                  <option value="">Dia</option>
+                  {Array.from({length: 31}, (_, i) => i + 1).map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button 
+                onClick={handleAddCard} 
+                className="bg-purple-600 text-white h-[34px] w-[34px] rounded-lg flex items-center justify-center hover:bg-purple-700 transition-colors shadow-md active:scale-95 flex-shrink-0 mb-[1px]"
+                title="Adicionar Cartão"
+              >
+                <Plus size={20}/>
+              </button>
+            </div>
+          </div>
+        </div>     
       </div>
 
       {/* 2. GESTÃO DE CATEGORIAS */}
