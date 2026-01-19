@@ -1,6 +1,6 @@
-// --- COMPONENTE: TELA DE LANÇAMENTOS (COM MÁSCARA DE MOEDA) ---
+// --- COMPONENTE: TELA DE LANÇAMENTOS (VISUAL ATUALIZADO) ---
 import React from 'react';
-import { DollarSign, List, Edit, Trash2 } from 'lucide-react';
+import { DollarSign, List, Edit, Trash2, Calendar, CreditCard } from 'lucide-react';
 import SummaryCards from './SummaryCards';
 
 export default function TransactionsView({ 
@@ -16,209 +16,263 @@ export default function TransactionsView({
   setAnticipateModal
 }) {
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6 pb-10">
       
-      {/* 1. RESUMO DE SALDOS (Agora com visual Branco/Dark + Sombra) */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg shadow-gray-200 dark:shadow-none border border-gray-100 dark:border-gray-700 grid grid-cols-1 md:grid-cols-2 overflow-hidden min-h-[90px] transition-all duration-300">
-        
-        {/* Lado Esquerdo: Disponível Livre */}
-        <div className="py-2 px-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-3 mb-0">
-            <div className="bg-green-100 dark:bg-green-900/30 p-1 rounded-full">
-              <DollarSign size={18} className="text-green-600 dark:text-green-400" />
+      {/* 1. RESUMO DE SALDOS (Visual Card Único) */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors duration-300">
+        <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-700">
+            
+            {/* Disponível Livre */}
+            <div className="p-6 flex flex-col items-center justify-center bg-green-50/50 dark:bg-green-900/10 col-span-1 md:col-span-1">
+                <div className="flex items-center gap-2 mb-2">
+                    <div className="p-2 bg-green-100 dark:bg-green-800 rounded-full text-green-600 dark:text-green-300">
+                        <DollarSign size={20} />
+                    </div>
+                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Disponível</span>
+                </div>
+                <h2 className={`text-3xl font-extrabold ${accumulatedBalance >= 0 ? 'text-gray-800 dark:text-white' : 'text-red-500 dark:text-red-400'}`}>
+                    R$ {accumulatedBalance.toFixed(2)}
+                </h2>
             </div>
-            <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold uppercase tracking-wider">Disponível (Livre)</p>
-          </div>
-          <h2 className={`text-2xl font-bold ${accumulatedBalance >= 0 ? 'text-gray-800 dark:text-white' : 'text-red-500 dark:text-red-400'}`}>
-            R$ {accumulatedBalance.toFixed(2)}
-          </h2>
-        </div>
 
-        {/* Lado Direito: Totais (Patrimônio, Metas, Investimentos) */}
-        <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-700 bg-gray-50 dark:bg-gray-900/20">
-          <div className="flex flex-col items-center justify-center p-2">
-            <span className="text-base font-bold text-gray-700 dark:text-gray-200 block">R$ {totalPatrimony.toFixed(2)}</span>
-            <span className="text-[10px] text-gray-400 uppercase font-bold">Total</span>
-          </div>
-          <div className="flex flex-col items-center justify-center p-2">
-            <span className="text-base font-bold text-gray-700 dark:text-gray-200 block">R$ {totalGoals.toFixed(2)}</span>
-            <span className="text-[10px] text-gray-400 uppercase font-bold">Metas</span>
-          </div>
-          <div className="flex flex-col items-center justify-center p-2">
-            <span className="text-base font-bold text-gray-700 dark:text-gray-200 block">R$ {totalInvestments.toFixed(2)}</span>
-            <span className="text-[10px] text-gray-400 uppercase font-bold">Invest.</span>
-          </div>
+            {/* Totais Secundários */}
+            <div className="p-4 flex flex-col items-center justify-center">
+                <span className="text-xs font-bold text-gray-400 uppercase mb-1">Patrimônio Total</span>
+                <span className="text-xl font-bold text-gray-700 dark:text-gray-200">R$ {totalPatrimony.toFixed(2)}</span>
+            </div>
+
+            <div className="p-4 flex flex-col items-center justify-center">
+                <span className="text-xs font-bold text-gray-400 uppercase mb-1">Em Metas</span>
+                <span className="text-xl font-bold text-purple-600 dark:text-purple-400">R$ {totalGoals.toFixed(2)}</span>
+            </div>
+
+            <div className="p-4 flex flex-col items-center justify-center">
+                <span className="text-xs font-bold text-gray-400 uppercase mb-1">Investido</span>
+                <span className="text-xl font-bold text-blue-600 dark:text-blue-400">R$ {totalInvestments.toFixed(2)}</span>
+            </div>
         </div>
       </div>
 
-      {/* 2. CARDS MENSAIS */}
+      {/* 2. CARDS MENSAIS (Receita/Despesa do Mês) */}
       <SummaryCards income={monthlyIncome} expense={monthlyExpense} balance={monthlyBalance} />
 
-      {/* 3. ÁREA OPERACIONAL */}
-      <div className="flex flex-col gap-4">
+      {/* 3. ÁREA OPERACIONAL (Formulários) */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         
-        {/* Linha de Receita (MODO ESCURO APLICADO) */}
-          <div className="bg-white dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-green-500 transition-colors duration-300">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
-              <div className="md:col-span-1 text-[10px] font-extrabold text-green-600 dark:text-green-400 uppercase text-center">Receita</div>
-              <input className="md:col-span-3 p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-green-400 transition-colors" placeholder="Descrição" value={incomeForm.description} onChange={e=>setIncomeForm({...incomeForm, description:e.target.value})}/>
-              
-              <input 
-                className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-green-400 transition-colors" 
-                type="text" 
-                placeholder="R$ 0,00" 
-                value={incomeForm.amount} 
-                onChange={(e) => handleCurrencyChange(e, setIncomeForm, incomeForm, 'amount')} 
-              />
-
-              <select className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-green-400 transition-colors" value={incomeForm.category} onChange={e=>setIncomeForm({...incomeForm, category:e.target.value})}>
-                {incomeCategories.map(c=><option key={c} value={c}>{c}</option>)}
-              </select>
-              <input className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-green-400 transition-colors" type="date" value={incomeForm.date} onChange={e=>setIncomeForm({...incomeForm, date:e.target.value})}/>
-              <button onClick={()=>addTransaction('income')} className="md:col-span-2 bg-green-600 text-white p-2 rounded-lg text-sm font-bold hover:bg-green-700 transition-all active:scale-95 shadow-sm">
-                {editingId ? 'Salvar' : '+ Receita'}
-              </button>
-            </div>
-          </div>
-
-          {/* Linha de Despesa (ATUALIZADA: Com botão de Recorrência/Fixa) */}
-          <div className="bg-white dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-red-500 transition-colors duration-300">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
-              
-              <div className="md:col-span-1 text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase text-center">Despesa</div>
-              
-              <input className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-red-400 transition-colors" placeholder="Descrição" value={expenseForm.description} onChange={e=>setExpenseForm({...expenseForm, description:e.target.value})}/>
-              
-              {/* BLOCO DE VALORES + PARCELAS + FIXA */}
-              <div className="md:col-span-3 flex items-center gap-1">
-                <input 
-                  className="flex-1 w-full p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-red-400 transition-colors" 
-                  type="text" 
-                  placeholder="R$ 0,00" 
-                  value={expenseForm.amount} 
-                  onChange={(e) => handleCurrencyChange(e, setExpenseForm, expenseForm, 'amount')} 
-                />
+        {/* FORMULÁRIO DE RECEITA */}
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-green-500 transition-colors duration-300">
+            <h3 className="text-sm font-extrabold text-green-600 dark:text-green-400 uppercase mb-4 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500"></div> Nova Receita
+            </h3>
+            
+            <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input 
+                        className="w-full p-3 text-sm border rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all" 
+                        placeholder="Descrição (Ex: Salário)" 
+                        value={incomeForm.description} 
+                        onChange={e=>setIncomeForm({...incomeForm, description:e.target.value})}
+                    />
+                    <input 
+                        className="w-full p-3 text-sm border rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-bold text-gray-700" 
+                        type="text" 
+                        placeholder="R$ 0,00" 
+                        value={incomeForm.amount} 
+                        onChange={(e) => handleCurrencyChange(e, setIncomeForm, incomeForm, 'amount')} 
+                    />
+                </div>
                 
-                {/* Input de Parcelas (Desabilita se for Fixa) */}
-                <input 
-                  disabled={!!editingId || expenseForm.isFixed} 
-                  className={`w-12 p-2 text-xs border rounded-lg text-center transition-colors focus:outline-none focus:border-red-400
-                    ${expenseForm.isFixed 
-                      ? 'bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-600 cursor-not-allowed' 
-                      : 'bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600'}
-                  `}
-                  title="Qtd Parcelas" 
-                  placeholder="1x" 
-                  type="text" 
-                  inputMode="numeric"
-                  maxLength={3}
-                  value={expenseForm.isFixed ? '' : expenseForm.installments} 
-                  onChange={e => {
-                    const val = e.target.value.replace(/\D/g, '');
-                    setExpenseForm({...expenseForm, installments: val});
-                  }}
-                />
-
-                {/* BOTÃO TOGGLE (Total vs Parcela) - Some se for Fixa */}
-                {!expenseForm.isFixed && (
-                  <button
-                    type="button"
-                    onClick={() => setExpenseForm({...expenseForm, isInstallmentValue: !expenseForm.isInstallmentValue})}
-                    disabled={!!editingId} 
-                    className={`
-                      h-9 px-2 rounded-lg text-[9px] font-bold leading-tight uppercase transition-all border border-gray-200 dark:border-gray-600
-                      ${expenseForm.isInstallmentValue 
-                        ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800' 
-                        : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}
-                      ${!!editingId ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}
-                    `}
-                    title="Clique para alternar: Valor Total ou Valor da Parcela"
-                  >
-                    {expenseForm.isInstallmentValue ? 'Valor\nParcela' : 'Valor\nTotal'}
-                  </button>
-                )}
-
-                {/* BOTÃO FIXA (Recorrência) */}
-                <button
-                  type="button"
-                  onClick={() => setExpenseForm({
-                    ...expenseForm, 
-                    isFixed: !expenseForm.isFixed,
-                    installments: '1', // Reseta parcelas ao ativar fixa
-                    isInstallmentValue: false 
-                  })}
-                  disabled={!!editingId}
-                  className={`
-                    h-9 px-2 rounded-lg text-[10px] font-bold uppercase transition-all border
-                    ${expenseForm.isFixed 
-                      ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800' 
-                      : 'bg-gray-100 text-gray-400 border-gray-200 dark:bg-gray-700 dark:text-gray-500 dark:border-gray-600 hover:bg-gray-200'}
-                    ${!!editingId ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}
-                  `}
-                  title="Despesa Fixa Mensal (Recorrente)"
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <select 
+                        className="w-full p-3 text-sm border rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all" 
+                        value={incomeForm.category} 
+                        onChange={e=>setIncomeForm({...incomeForm, category:e.target.value})}
+                    >
+                        {incomeCategories.map(c=><option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <input 
+                        className="w-full p-3 text-sm border rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all" 
+                        type="date" 
+                        value={incomeForm.date} 
+                        onChange={e=>setIncomeForm({...incomeForm, date:e.target.value})}
+                    />
+                </div>
+                
+                <button 
+                    onClick={()=>addTransaction('income')} 
+                    className="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] shadow-lg shadow-green-200 dark:shadow-none flex items-center justify-center gap-2"
                 >
-                  Fixa?
+                    {editingId ? <><Edit size={16}/> Atualizar Receita</> : <><DollarSign size={16}/> Adicionar Receita</>}
                 </button>
+            </div>
+        </div>
+
+        {/* FORMULÁRIO DE DESPESA */}
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-red-500 transition-colors duration-300">
+            <h3 className="text-sm font-extrabold text-red-600 dark:text-red-400 uppercase mb-4 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-red-500"></div> Nova Despesa
+            </h3>
+            
+            <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input 
+                        className="w-full p-3 text-sm border rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all" 
+                        placeholder="Descrição (Ex: Supermercado)" 
+                        value={expenseForm.description} 
+                        onChange={e=>setExpenseForm({...expenseForm, description:e.target.value})}
+                    />
+                    
+                    {/* BLOCO DE VALORES + OPÇÕES */}
+                    <div className="flex gap-2">
+                        <input 
+                            className="flex-1 w-full p-3 text-sm border rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-bold text-gray-700" 
+                            type="text" 
+                            placeholder="R$ 0,00" 
+                            value={expenseForm.amount} 
+                            onChange={(e) => handleCurrencyChange(e, setExpenseForm, expenseForm, 'amount')} 
+                        />
+                        
+                        {/* Input Parcelas */}
+                        <input 
+                          disabled={!!editingId || expenseForm.isFixed} 
+                          className={`w-14 p-2 text-xs border rounded-xl text-center transition-colors outline-none focus:border-red-500 ${expenseForm.isFixed ? 'bg-gray-200 dark:bg-gray-800 opacity-50' : 'bg-gray-50 dark:bg-gray-700 dark:text-white'}`}
+                          placeholder="1x" 
+                          maxLength={3}
+                          value={expenseForm.isFixed ? '' : expenseForm.installments} 
+                          onChange={e => setExpenseForm({...expenseForm, installments: e.target.value.replace(/\D/g, '')})}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex gap-2">
+                   {/* Botão Toggle Valor/Parcela */}
+                   {!expenseForm.isFixed && (
+                      <button
+                        type="button"
+                        onClick={() => setExpenseForm({...expenseForm, isInstallmentValue: !expenseForm.isInstallmentValue})}
+                        disabled={!!editingId} 
+                        className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all flex-1 ${expenseForm.isInstallmentValue ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-700 dark:border-gray-600'}`}
+                      >
+                        {expenseForm.isInstallmentValue ? 'Valor da Parcela' : 'Valor Total'}
+                      </button>
+                    )}
+
+                    {/* Botão Fixa */}
+                    <button
+                        type="button"
+                        onClick={() => setExpenseForm({...expenseForm, isFixed: !expenseForm.isFixed, installments: '1', isInstallmentValue: false})}
+                        disabled={!!editingId}
+                        className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all w-24 ${expenseForm.isFixed ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-700 dark:border-gray-600'}`}
+                    >
+                        {expenseForm.isFixed ? 'Fixa ✅' : 'Fixa?'}
+                    </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <select 
+                        className="w-full p-3 text-sm border rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all" 
+                        value={expenseForm.category} 
+                        onChange={e=>setExpenseForm({...expenseForm, category:e.target.value})}
+                    >
+                        {expenseCategories.map(c=><option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <input 
+                        className="w-full p-3 text-sm border rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all" 
+                        type="date" 
+                        value={expenseForm.date} 
+                        onChange={e=>setExpenseForm({...expenseForm, date:e.target.value})}
+                    />
+                </div>
+                
+                <button 
+                    onClick={()=>addTransaction('expense')} 
+                    className="w-full bg-red-600 hover:bg-red-700 text-white p-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] shadow-lg shadow-red-200 dark:shadow-none flex items-center justify-center gap-2"
+                >
+                    {editingId ? <><Edit size={16}/> Atualizar Despesa</> : <><DollarSign size={16}/> Adicionar Despesa</>}
+                </button>
+            </div>
+        </div>
+      </div>
+
+      {/* 4. LISTA DO EXTRATO (Expandida) */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 min-h-[400px] transition-colors duration-300">
+        <h3 className="font-bold mb-6 flex justify-between items-center text-gray-800 dark:text-gray-100 text-lg">
+          <span className="flex items-center gap-2"><List className="text-blue-500"/> Extrato de Movimentações</span>
+          <span className="text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-3 py-1 rounded-full border border-blue-100 dark:border-blue-800">
+            {formatMonthYear(currentDate)}
+          </span>
+        </h3>
+        
+        <div className="space-y-2">
+          {transactions.filter(t => { 
+            const [y, m] = t.date.split('-'); 
+            return (parseInt(m)-1)===currentDate.getMonth() && parseInt(y)===currentDate.getFullYear() 
+          }).slice().reverse().map(t => (
+            <div key={t.id} className={`group flex flex-col md:flex-row md:items-center justify-between border-b border-gray-50 dark:border-gray-700/50 last:border-0 p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all ${editingId === t.id ? 'bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800' : ''}`}>
+              
+              {/* Info Esquerda */}
+              <div className="flex items-start gap-4 mb-2 md:mb-0">
+                <div className={`p-3 rounded-full ${t.type === 'receita' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}>
+                    {t.type === 'receita' ? <DollarSign size={20}/> : <CreditCard size={20}/>}
+                </div>
+                <div>
+                  <p className="font-bold text-gray-800 dark:text-gray-200 text-base">{t.description}</p>
+                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <span className="flex items-center gap-1"><Calendar size={12}/> {t.date.split('-').reverse().join('/')}</span>
+                    <span>•</span>
+                    <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-gray-600 dark:text-gray-300">{t.category}</span>
+                    <span>•</span>
+                    <span className="text-indigo-500 dark:text-indigo-400 font-medium">{t.authorName}</span>
+                    {t.isFixed && <span className="text-purple-500 font-bold ml-1" title="Despesa Fixa">↺ Fixa</span>}
+                  </div>
+                </div>
               </div>
 
-              <select className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-red-400 transition-colors" value={expenseForm.category} onChange={e=>setExpenseForm({...expenseForm, category:e.target.value})}>
-                {expenseCategories.map(c=><option key={c} value={c}>{c}</option>)}
-              </select>
-              
-              <input className="md:col-span-2 p-2 text-sm border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:border-red-400 transition-colors" type="date" value={expenseForm.date} onChange={e=>setExpenseForm({...expenseForm, date:e.target.value})}/>
-              
-              <button onClick={()=>addTransaction('expense')} className="md:col-span-2 bg-red-600 text-white p-2 rounded-lg text-sm font-bold hover:bg-red-700 transition-all active:scale-95 shadow-sm h-[38px]">
-                {editingId ? 'Salvar' : '+ Despesa'}
-              </button>
-            </div>
-          </div>
-
-        {/* LISTA DO EXTRATO (MODO ESCURO APLICADO) */}
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 h-fit max-h-[600px] overflow-y-auto transition-colors duration-300">
-          <h3 className="font-bold mb-4 flex justify-between items-center text-gray-700 dark:text-gray-100">
-            Extrato <span className="text-xs font-normal bg-gray-100 dark:bg-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-gray-500 border dark:border-gray-600">{formatMonthYear(currentDate)}</span>
-          </h3>
-          <div className="space-y-1">
-            {transactions.filter(t => { 
-              const [y, m] = t.date.split('-'); 
-              return (parseInt(m)-1)===currentDate.getMonth() && parseInt(y)===currentDate.getFullYear() 
-            }).slice().reverse().map(t => (
-              <div key={t.id} className={`flex justify-between items-center border-b border-gray-50 dark:border-gray-700 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${editingId === t.id ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800' : ''}`}>
-                <div>
-                  <p className="font-bold text-sm dark:text-gray-200">{t.description}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t.date.split('-').reverse().join('/')} • {t.category} • <span className="text-indigo-500 dark:text-indigo-400 font-medium">{t.authorName}</span></p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`font-bold text-sm ${
-                    (['Aporte', 'Resgate', 'Estorno'].includes(t.category)) 
-                      ? 'text-blue-600 dark:text-blue-400' 
-                      : t.type === 'receita' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {t.type === 'receita' ? '+' : '-'} R$ {Number(t.value).toFixed(2)}
-                  </span>
-                  {/* BOTÃO DE ANTECIPAR (Só aparece se for parcelado) */}
+              {/* Info Direita (Valor e Ações) */}
+              <div className="flex items-center justify-between md:justify-end gap-4 w-full md:w-auto pl-14 md:pl-0">
+                <span className={`font-bold text-lg whitespace-nowrap ${
+                  (['Aporte', 'Resgate', 'Estorno'].includes(t.category)) 
+                    ? 'text-blue-600 dark:text-blue-400' 
+                    : t.type === 'receita' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {t.type === 'receita' ? '+' : '-'} R$ {Number(t.value).toFixed(2)}
+                </span>
+                
+                <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Botão Antecipar */}
                   {t.installmentGroupId && (
                     <button 
                       onClick={() => setAnticipateModal({ show: true, transaction: t })} 
-                      className="text-orange-400 hover:text-orange-600 p-1 transition-colors"
+                      className="p-2 text-orange-400 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors"
                       title="Antecipar Parcelas Futuras"
                     >
-                      {/* Ícone Fast Forward (⏩) */}
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>
                     </button>
                   )}
-                  <button onClick={()=>startEditing(t)} className="text-blue-400 hover:text-blue-600 p-1"><Edit size={14}/></button>
-                  <button onClick={()=>removeTransaction(t.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={14}/></button>
+                  
+                  <button onClick={()=>startEditing(t)} className="p-2 text-blue-400 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors" title="Editar">
+                    <Edit size={18}/>
+                  </button>
+                  <button onClick={()=>removeTransaction(t.id)} className="p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors" title="Excluir">
+                    <Trash2 size={18}/>
+                  </button>
                 </div>
               </div>
-            ))}
-            {transactions.length === 0 && (
-              <div className="text-center text-gray-400 dark:text-gray-500 py-10 flex flex-col items-center">
-                <List size={40} className="mb-2 opacity-20"/>
-                <p>Nenhum lançamento.</p>
+            </div>
+          ))}
+          
+          {transactions.filter(t => { 
+            const [y, m] = t.date.split('-'); 
+            return (parseInt(m)-1)===currentDate.getMonth() && parseInt(y)===currentDate.getFullYear() 
+          }).length === 0 && (
+            <div className="text-center text-gray-400 dark:text-gray-500 py-16 flex flex-col items-center">
+              <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-full mb-3">
+                  <List size={40} className="opacity-30"/>
               </div>
-            )}
-          </div>
+              <p className="text-lg font-medium">Nenhum lançamento neste mês.</p>
+              <p className="text-sm opacity-60">Use os formulários acima para adicionar receitas ou despesas.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

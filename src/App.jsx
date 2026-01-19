@@ -36,11 +36,14 @@ export default function App() {
   const [authMode, setAuthMode] = useState('login');
   const [loginForm, setLoginForm] = useState({ email: '', password: '', name: '', pin: '' });
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [familyName, setFamilyName] = useState('Minha Família');
   const [familyPin, setFamilyPin] = useState('');
   const [transactions, setTransactions] = useState([]);
   const [goals, setGoals] = useState([]);
   const [investments, setInvestments] = useState([]);
+  // --- NOVO: ESTADO DOS CARTÕES DE CRÉDITO ---
+  const [creditCards, setCreditCards] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState(['Alimentação', 'Transporte', 'Moradia', 'Lazer', 'Saúde', 'Educação', 'Outros']);
   const [incomeCategories, setIncomeCategories] = useState(['Salário', 'Extra', 'Investimento', 'Presente', 'Outros']);
   const COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1', '#84CC16', '#14B8A6'];
@@ -162,6 +165,7 @@ export default function App() {
         if (data.transactions) setTransactions(Object.values(data.transactions)); else setTransactions([]);
         if (data.goals) setGoals(Object.values(data.goals)); else setGoals([]);
         if (data.investments) setInvestments(Object.values(data.investments)); else setInvestments([]);
+        if (data.creditCards) setCreditCards(Object.values(data.creditCards)); else setCreditCards([]);        
         if (data.expenseCategories) setExpenseCategories(data.expenseCategories);
         if (data.incomeCategories) setIncomeCategories(data.incomeCategories);
       }
@@ -951,64 +955,92 @@ export default function App() {
   };
 
   // --- CÁLCULOS OTIMIZADOS COM USEMEMO (ADICIONADO) ---
+  // --- CÁLCULOS OTIMIZADOS (COM MATEMÁTICA DE CARTÃO) ---
   const totals = React.useMemo(() => {
+    // 1. Definições de Data
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+
+    // 2. Totais de Fatura (Calculados dinamicamente)
+    let invoiceTotal = 0;
+    let nextInvoiceTotal = 0;
+
+    // Varre transações para somar Faturas e separar gastos do cartão
+    transactions.forEach(t => {
+      // Se for Despesa no Crédito (e não for Aporte)
+      if (t.type === 'despesa' && t.paymentMethod === 'Cartão de Crédito' && t.category !== 'Aporte') {
+        // Tenta achar o cartão vinculado ou usa o primeiro disponível como padrão
+        const card = (t.cardId && creditCards.find(c => c.id === t.cardId)) || (creditCards.length > 0 ? creditCards[0] : null);
+        const closingDay = card ? parseInt(card.closingDay) : 1; // Dia 1 se não tiver cartão
+
+        const tDate = new Date(t.date + 'T12:00:00');
+        const invoiceClosingDate = new Date(currentYear, currentMonth, closingDay);
+        const prevInvoiceClosingDate = new Date(currentYear, currentMonth - 1, closingDay);
+        const nextInvoiceClosingDate = new Date(currentYear, currentMonth + 1, closingDay);
+
+        // Lógica de Fatura:
+        if (tDate > prevInvoiceClosingDate && tDate <= invoiceClosingDate) {
+          invoiceTotal += Number(t.value); // Fatura Atual
+        } else if (tDate > invoiceClosingDate && tDate <= nextInvoiceClosingDate) {
+          nextInvoiceTotal += Number(t.value); // Próxima Fatura
+        }
+      }
+    });
+
+    // 3. Filtrar Transações do Mês (Para os Gráficos e Totais Mensais)
     const currentMonthTrans = transactions.filter(t => {
       if (!t.date) return false;
       const [y, m] = t.date.split('-');
-      return (parseInt(m) - 1) === currentDate.getMonth() && parseInt(y) === currentDate.getFullYear();
+      return (parseInt(m) - 1) === currentMonth && parseInt(y) === currentYear;
     });
 
-    // RECEITA REAL: Ignora o que é apenas dinheiro voltando de metas (Resgate/Estorno)
     const inc = currentMonthTrans
       .filter(t => t.type === 'receita' && t.category !== 'Resgate' && t.category !== 'Estorno')
       .reduce((acc, c) => acc + Number(c.value), 0);
 
-    // DESPESA REAL: Ignora o que é apenas dinheiro indo para metas (Aporte)
     const exp = currentMonthTrans
       .filter(t => t.type === 'despesa' && t.category !== 'Aporte')
       .reduce((acc, c) => acc + Number(c.value), 0);
 
-    // SALDO DISPONÍVEL (LIVRE): Filtra apenas o que já aconteceu (até hoje)
+    // 4. SALDO LIVRE (REAL): O Pulo do Gato 🐈
+    // Desconta tudo, MENOS o que foi gasto no Crédito (pois isso vira dívida de fatura, não saída de caixa imediata)
     const todayStr = new Date().toISOString().split('T')[0];
     
     const accBalance = transactions
-      .filter(t => t.date <= todayStr) // <--- O PULO DO GATO: Ignora parcelas futuras
-      .reduce((acc, c) =>
-        c.type === 'receita' ? acc + Number(c.value) : acc - Number(c.value), 0);
+      .filter(t => t.date <= todayStr)
+      .reduce((acc, c) => {
+        if (c.type === 'receita') return acc + Number(c.value);
+        // Só subtrai se NÃO for cartão de crédito
+        if (c.type === 'despesa' && c.paymentMethod !== 'Cartão de Crédito') return acc - Number(c.value);
+        return acc;
+      }, 0);
 
     const goalsTotal = goals.reduce((acc, c) => acc + (Number(c.currentAmount) || 0), 0);
     const investTotal = investments.reduce((acc, c) => acc + (Number(c.currentAmount) || 0), 0);
 
-    // GRÁFICO DE PIZZA: Mostra apenas gastos de consumo (ignora aportes)
+    // Gráficos
     const expensesByCategory = currentMonthTrans
       .filter(t => t.type === 'despesa' && t.category !== 'Aporte')
       .reduce((acc, curr) => {
         acc[curr.category] = (acc[curr.category] || 0) + Number(curr.value);
         return acc;
       }, {});
-
     const pData = Object.keys(expensesByCategory).map(key => ({ name: key, value: expensesByCategory[key] }));
 
-    // GRÁFICO DE BARRAS (Histórico): Também usa a lógica de Receita/Despesa Real
     const bData = Array.from({ length: 6 }).map((_, i) => {
       const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - (5 - i), 1);
-      const monthLabel = d.toLocaleDateString('pt-BR', { month: 'short' });
-      const yearLabel = d.getFullYear();
-
       const monthTrans = transactions.filter(t => {
         if (!t.date) return false;
         const [y, m] = t.date.split('-');
         return (parseInt(m) - 1) === d.getMonth() && parseInt(y) === d.getFullYear();
       });
-
-      const monthInc = monthTrans
-        .filter(t => t.type === 'receita' && t.category !== 'Resgate' && t.category !== 'Estorno')
-        .reduce((acc, c) => acc + Number(c.value), 0);
-      const monthExp = monthTrans
-        .filter(t => t.type === 'despesa' && t.category !== 'Aporte')
-        .reduce((acc, c) => acc + Number(c.value), 0);
-
-      return { name: `${monthLabel}/${yearLabel}`, Receita: monthInc, Despesa: monthExp };
+      const mInc = monthTrans.filter(t => t.type === 'receita' && t.category !== 'Resgate').reduce((acc, c) => acc + Number(c.value), 0);
+      const mExp = monthTrans.filter(t => t.type === 'despesa' && t.category !== 'Aporte').reduce((acc, c) => acc + Number(c.value), 0);
+      return { 
+        name: d.toLocaleDateString('pt-BR', { month: 'short' }) + '/' + d.getFullYear(), 
+        Receita: mInc, 
+        Despesa: mExp 
+      };
     });
 
     return {
@@ -1020,11 +1052,13 @@ export default function App() {
       totalInvestments: investTotal,
       totalPatrimony: accBalance + goalsTotal + investTotal,
       pieData: pData,
-      barData: bData
+      barData: bData,
+      invoiceTotal,      // <--- NOVO
+      nextInvoiceTotal   // <--- NOVO
     };
-  }, [transactions, goals, investments, currentDate]);
+  }, [transactions, goals, investments, currentDate, creditCards]); // <--- Dependências Atualizadas
 
-  const { monthlyIncome, monthlyExpense, monthlyBalance, accumulatedBalance, totalGoals, totalInvestments, totalPatrimony, pieData, barData } = totals;
+  const { monthlyIncome, monthlyExpense, monthlyBalance, accumulatedBalance, totalGoals, totalInvestments, totalPatrimony, pieData, barData, invoiceTotal, nextInvoiceTotal } = totals;
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-blue-900 text-white">Carregando...</div>;
 
@@ -1141,22 +1175,34 @@ export default function App() {
   );
 
   return (
-    <div className={`flex h-screen overflow-hidden transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-300'}`}>
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} handleLogout={handleLogout} familyName={familyName} />
+    <div className={`flex h-screen overflow-hidden transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-300'} relative`}>
+      
+      {/* Passamos o estado 'isOpen' e a função 'setIsOpen' para a Sidebar */}
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        handleLogout={handleLogout} 
+        familyName={familyName}
+        isOpen={isSidebarOpen}       // <--- NOVO
+        setIsOpen={setIsSidebarOpen} // <--- NOVO
+      />
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative w-full">
+      <main className="flex-1 flex flex-col h-screen ov
+      erflow-hidden relative w-full">
         <Header
           activeTab={activeTab}
           familyName={familyName}
           currentUser={currentUser}
-          darkMode={darkMode}       // Informa se está escuro
-          toggleTheme={toggleTheme} // Entrega o interruptor
+          darkMode={darkMode}
+          toggleTheme={toggleTheme}
+          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} // <--- NOVO (Botão Menu)
         />
 
         {(activeTab === 'dashboard' || activeTab === 'transactions') && (
-          // CONTAINER EXTERNO: Cria o espaçamento para o card "flutuar"
-          <div className="px-4 mt-6 mb-2 md:pl-8 md:pr-12">
-            <div className="max-w-6xl mx-auto">
+          // CONTAINER EXTERNO: Ajustado para alinhar com o Dashboard (md:px-8 e max-w-7xl)
+          //<div className="px-4 mt-6 mb-1 md:px-8">
+          <div className="px-4 mt-6 mb-0.1 md:pr-10 md:pl-7">
+            <div className="max-w-7xl mx-auto">
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-2 md:p-3 flex justify-between items-center transition-colors duration-300 border border-gray-100 dark:border-gray-700">
 
                 {/* Botão Esquerda */}
@@ -1189,7 +1235,20 @@ export default function App() {
 
         <div className={`flex-1 overflow-y-auto p-4 pb-24 md:p-8 transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-300'}`}>
           {activeTab === 'dashboard' && (
-            <DashboardView totalPatrimony={totalPatrimony} accumulatedBalance={accumulatedBalance} totalGoals={totalGoals} totalInvestments={totalInvestments} monthlyIncome={monthlyIncome} monthlyExpense={monthlyExpense} monthlyBalance={monthlyBalance} pieData={pieData} barData={barData} COLORS={COLORS} />
+            <DashboardView 
+              totalPatrimony={totalPatrimony} 
+              accumulatedBalance={accumulatedBalance} 
+              totalGoals={totalGoals} 
+              totalInvestments={totalInvestments} 
+              monthlyIncome={monthlyIncome} 
+              monthlyExpense={monthlyExpense} 
+              monthlyBalance={monthlyBalance} 
+              pieData={pieData} 
+              barData={barData} 
+              COLORS={COLORS}
+              invoiceTotal={invoiceTotal}          // <--- NOVO
+              nextInvoiceTotal={nextInvoiceTotal}  // <--- NOVO
+            />
           )}
 
           {activeTab === 'transactions' && (
