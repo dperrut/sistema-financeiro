@@ -87,15 +87,17 @@ export default function App() {
   const [withdrawModal, setWithdrawModal] = useState({ show: false, type: '', id: null, name: '' });
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', reason: '' });
   const [incomeForm, setIncomeForm] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', category: '' });
+  // Adicione paymentMethod e card ao estado inicial
   const [expenseForm, setExpenseForm] = useState({ 
-    date: new Date().toISOString().split('T')[0], 
     description: '', 
     amount: '', 
-    category: '', 
-    paymentMethod: 'Cartão de Crédito', 
+    date: currentDate.toISOString().split('T')[0], 
+    category: expenseCategories[0], 
+    isFixed: false, 
     installments: '1', 
     isInstallmentValue: false,
-    isFixed: false // <--- CAMPO NOVO AQUI
+    paymentMethod: 'Pix', // Novo
+    card: '' // Novo
   });
   const [goalForm, setGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', description: '' });
   const [investmentForm, setInvestmentForm] = useState({ name: '', initialAmount: '' });
