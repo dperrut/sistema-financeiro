@@ -297,9 +297,10 @@ export default function App() {
           value: inputVal, 
           date: form.date, 
           category: form.category || (isExpense ? expenseCategories[0] : incomeCategories[0]),
-          paymentMethod: isExpense ? (form.paymentMethod || 'Cartão de Crédito') : null, 
-          installments: isExpense && !form.isFixed ? installmentsStr : null, // Se for fixa, não tem "1x"
-          isFixed: form.isFixed || false, // Marca no histórico que é fixa
+          paymentMethod: isExpense ? (form.paymentMethod || 'Cartão de Crédito') : null,
+          card: isExpense ? (form.card || null) : null, // <--- ADICIONADO: Salva o ID do cartão
+          installments: isExpense && !form.isFixed ? installmentsStr : null, 
+          isFixed: form.isFixed || false, 
           ...metaData 
         };
 
@@ -371,6 +372,7 @@ export default function App() {
             date: dateStr,
             category: form.category || expenseCategories[0],
             paymentMethod: form.paymentMethod || 'Cartão de Crédito',
+            card: form.card || null,
             installments: installmentsStr,
             installmentGroupId: groupId,
             installmentIndex: i + 1,
@@ -955,41 +957,52 @@ export default function App() {
       console.error("🔥 ERRO CRÍTICO NO ROBÔ:", error);
     }
   };
-
-  // --- CÁLCULOS OTIMIZADOS COM USEMEMO (ADICIONADO) ---
-  // --- CÁLCULOS OTIMIZADOS (COM MATEMÁTICA DE CARTÃO) ---
+  
+  // --- CÁLCULOS OTIMIZADOS (CORRIGIDO: LÓGICA DE FATURA E ID DO CARTÃO) ---
   const totals = React.useMemo(() => {
     // 1. Definições de Data
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
 
-    // 2. Totais de Fatura (Calculados dinamicamente)
+    // 2. Totais de Fatura (Calculados com a regra de fechamento)
     let invoiceTotal = 0;
     let nextInvoiceTotal = 0;
 
-    // Varre transações para somar Faturas e separar gastos do cartão
     transactions.forEach(t => {
-      // Se for Despesa no Crédito (e não for Aporte)
+      // Verifica se é Despesa de Cartão de Crédito (ignora Aportes)
       if (t.type === 'despesa' && t.paymentMethod === 'Cartão de Crédito' && t.category !== 'Aporte') {
-        // Tenta achar o cartão vinculado ou usa o primeiro disponível como padrão
-        const card = (t.cardId && creditCards.find(c => c.id === t.cardId)) || (creditCards.length > 0 ? creditCards[0] : null);
-        const closingDay = card ? parseInt(card.closingDay) : 1; // Dia 1 se não tiver cartão
+        
+        // CORREÇÃO 1: Usa 't.card' (o ID correto) em vez de 't.cardId'
+        const card = creditCards.find(c => c.id === t.card);
+        
+        if (card && card.closingDay) {
+            const closingDay = parseInt(card.closingDay);
+            const tDate = new Date(t.date + 'T12:00:00');
 
-        const tDate = new Date(t.date + 'T12:00:00');
-        const invoiceClosingDate = new Date(currentYear, currentMonth, closingDay);
-        const prevInvoiceClosingDate = new Date(currentYear, currentMonth - 1, closingDay);
-        const nextInvoiceClosingDate = new Date(currentYear, currentMonth + 1, closingDay);
+            // CORREÇÃO 2: Lógica de "Melhor Dia de Compra"
+            // Fatura Atual (do mês selecionado): Compras entre [Fechamento Mês Anterior] e [Fechamento Atual]
+            const currentInvoiceStart = new Date(currentYear, currentMonth - 1, closingDay);
+            const currentInvoiceEnd = new Date(currentYear, currentMonth, closingDay);
+            
+            // Próxima Fatura: Compras após o fechamento deste mês
+            const nextInvoiceEnd = new Date(currentYear, currentMonth + 1, closingDay);
 
-        // Lógica de Fatura:
-        if (tDate > prevInvoiceClosingDate && tDate <= invoiceClosingDate) {
-          invoiceTotal += Number(t.value); // Fatura Atual
-        } else if (tDate > invoiceClosingDate && tDate <= nextInvoiceClosingDate) {
-          nextInvoiceTotal += Number(t.value); // Próxima Fatura
+            if (tDate >= currentInvoiceStart && tDate < currentInvoiceEnd) {
+                invoiceTotal += Number(t.value);
+            } else if (tDate >= currentInvoiceEnd && tDate < nextInvoiceEnd) {
+                nextInvoiceTotal += Number(t.value);
+            }
+        } else {
+            // Fallback: Se o cartão não tiver dia de fechamento configurado (ou for antigo sem ID), usa o mês civil
+            const [y, m] = t.date.split('-');
+            if ((parseInt(m) - 1) === currentMonth && parseInt(y) === currentYear) {
+                invoiceTotal += Number(t.value);
+            }
         }
       }
     });
 
-    // 3. Filtrar Transações do Mês (Para os Gráficos e Totais Mensais)
+    // 3. Filtrar Transações do Mês (Para Gráficos e Totais Mensais - Visão Contábil)
     const currentMonthTrans = transactions.filter(t => {
       if (!t.date) return false;
       const [y, m] = t.date.split('-');
@@ -1004,15 +1017,13 @@ export default function App() {
       .filter(t => t.type === 'despesa' && t.category !== 'Aporte')
       .reduce((acc, c) => acc + Number(c.value), 0);
 
-    // 4. SALDO LIVRE (REAL): O Pulo do Gato 🐈
-    // Desconta tudo, MENOS o que foi gasto no Crédito (pois isso vira dívida de fatura, não saída de caixa imediata)
+    // 4. SALDO LIVRE (REAL)
+    // Entra tudo que é receita. Sai tudo que é despesa (EXCETO Crédito, pois Crédito vira fatura e só sai quando pagamos a fatura via Pix)
     const todayStr = new Date().toISOString().split('T')[0];
-    
     const accBalance = transactions
       .filter(t => t.date <= todayStr)
       .reduce((acc, c) => {
         if (c.type === 'receita') return acc + Number(c.value);
-        // Só subtrai se NÃO for cartão de crédito
         if (c.type === 'despesa' && c.paymentMethod !== 'Cartão de Crédito') return acc - Number(c.value);
         return acc;
       }, 0);
@@ -1055,10 +1066,10 @@ export default function App() {
       totalPatrimony: accBalance + goalsTotal + investTotal,
       pieData: pData,
       barData: bData,
-      invoiceTotal,      // <--- NOVO
-      nextInvoiceTotal   // <--- NOVO
+      invoiceTotal,      // Sincronizado
+      nextInvoiceTotal   // Sincronizado
     };
-  }, [transactions, goals, investments, currentDate, creditCards]); // <--- Dependências Atualizadas
+  }, [transactions, goals, investments, currentDate, creditCards]);
 
   const { monthlyIncome, monthlyExpense, monthlyBalance, accumulatedBalance, totalGoals, totalInvestments, totalPatrimony, pieData, barData, invoiceTotal, nextInvoiceTotal } = totals;
 

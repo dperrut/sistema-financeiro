@@ -27,7 +27,66 @@ export default function SettingsView({
 // --- LÓGICA DE CARTÕES DE CRÉDITO (NOVO) ---
   const [creditCards, setCreditCards] = useState([]);
   // --- LÓGICA ATUALIZADA ---
+  // --- LÓGICA ATUALIZADA ---
   const [newCard, setNewCard] = useState({ name: '', closingDay: '', dueDay: '', last4: '', holder: '' });
+  const [editingCardId, setEditingCardId] = useState(null); // NOVO: Controla qual cartão está sendo editado
+
+  // Função Unificada: Criar ou Editar
+  const handleSaveCard = async () => {
+    if (!newCard.name || !newCard.closingDay || !newCard.dueDay) return alert("Preencha os dados principais.");
+    
+    const close = parseInt(newCard.closingDay);
+    const due = parseInt(newCard.dueDay);
+    
+    if (newCard.last4 && newCard.last4.length !== 4) return alert("Digite exatamente os 4 últimos dígitos.");
+    if (close < 1 || close > 31 || due < 1 || due > 31) return alert("Dias inválidos.");
+
+    try {
+      if (editingCardId) {
+        // MODO EDIÇÃO: Atualiza o existente
+        await update(ref(db, `families/${currentUser.familyId}/creditCards/${editingCardId}`), { 
+            name: newCard.name, 
+            holder: newCard.holder || currentUser.name.split(' ')[0].toUpperCase(),
+            closingDay: close, 
+            dueDay: due,
+            last4: newCard.last4 || '0000'
+            // Nota: Não atualizamos a cor aqui para não resetar a preferência do usuário
+        });
+        setEditingCardId(null); // Sai do modo edição
+        alert("Cartão atualizado com sucesso!");
+      } else {
+        // MODO CRIAÇÃO: Cria um novo
+        const newCardRef = push(ref(db, `families/${currentUser.familyId}/creditCards`));
+        await update(newCardRef, { 
+            name: newCard.name, 
+            holder: newCard.holder || currentUser.name.split(' ')[0].toUpperCase(), 
+            closingDay: close, 
+            dueDay: due,
+            last4: newCard.last4 || '0000',
+            color: CARD_COLORS[0] 
+        });
+      }
+      // Limpa o formulário
+      setNewCard({ name: '', closingDay: '', dueDay: '', last4: '', holder: '' });
+    } catch (error) { console.error(error); alert("Erro ao salvar cartão."); }
+  };
+
+  // Função para preencher o formulário com os dados do cartão clicado
+  const startEditingCard = (card) => {
+    setNewCard({ 
+        name: card.name, 
+        closingDay: card.closingDay, 
+        dueDay: card.dueDay, 
+        last4: card.last4, 
+        holder: card.holder 
+    });
+    setEditingCardId(card.id);
+  };
+
+  const cancelEditing = () => {
+    setNewCard({ name: '', closingDay: '', dueDay: '', last4: '', holder: '' });
+    setEditingCardId(null);
+  };
 
   // Carrega os cartões ao iniciar
   useEffect(() => {
@@ -180,7 +239,11 @@ export default function SettingsView({
                     <button onClick={() => handleCycleColor(card)} className="bg-white/20 p-1.5 rounded-full hover:bg-white/40 transition-colors" title="Mudar Cor">
                       <div className="w-3 h-3 rounded-full bg-gradient-to-tr from-yellow-400 via-red-400 to-blue-400"></div>
                     </button>
-                    <button onClick={() => handleDeleteCard(card.id)} className="bg-white/20 p-1.5 rounded-full hover:bg-red-500/80 transition-colors">
+                    {/* BOTÃO EDITAR ADICIONADO */}
+                    <button onClick={() => startEditingCard(card)} className="bg-white/20 p-1.5 rounded-full hover:bg-blue-500/80 transition-colors" title="Editar Dados">
+                      <Edit size={14} className="text-white"/>
+                    </button>
+                    <button onClick={() => handleDeleteCard(card.id)} className="bg-white/20 p-1.5 rounded-full hover:bg-red-500/80 transition-colors" title="Excluir">
                       <Trash2 size={14} className="text-white"/>
                     </button>
                   </div>
@@ -305,13 +368,34 @@ export default function SettingsView({
                 </select>
               </div>
 
-              <button 
-                onClick={handleAddCard} 
-                className="bg-purple-600 text-white h-[34px] w-[34px] rounded-lg flex items-center justify-center hover:bg-purple-700 transition-colors shadow-md active:scale-95 flex-shrink-0 mb-[1px]"
-                title="Adicionar Cartão"
-              >
-                <Plus size={20}/>
-              </button>
+              {editingCardId ? (
+                // MODO EDIÇÃO: Botão de Salvar (Verde) e Cancelar (Cinza)
+                <div className="flex gap-1">
+                    <button 
+                        onClick={cancelEditing} 
+                        className="bg-gray-400 text-white h-[34px] w-[34px] rounded-lg flex items-center justify-center hover:bg-gray-500 transition-colors shadow-md active:scale-95 flex-shrink-0 mb-[1px]"
+                        title="Cancelar Edição"
+                    >
+                        <XCircle size={20}/>
+                    </button>
+                    <button 
+                        onClick={handleSaveCard} 
+                        className="bg-green-600 text-white h-[34px] w-[34px] rounded-lg flex items-center justify-center hover:bg-green-700 transition-colors shadow-md active:scale-95 flex-shrink-0 mb-[1px]"
+                        title="Salvar Alterações"
+                    >
+                        <AlertTriangle size={18} className="rotate-180"/> {/* Ícone improvisado de check ou similar */}
+                    </button>
+                </div>
+              ) : (
+                // MODO CRIAÇÃO: Botão Normal (+)
+                <button 
+                    onClick={handleSaveCard} 
+                    className="bg-purple-600 text-white h-[34px] w-[34px] rounded-lg flex items-center justify-center hover:bg-purple-700 transition-colors shadow-md active:scale-95 flex-shrink-0 mb-[1px]"
+                    title="Adicionar Cartão"
+                >
+                    <Plus size={20}/>
+                </button>
+              )}
             </div>
           </div>
         </div>     
