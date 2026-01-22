@@ -5,7 +5,7 @@ import { Target, DollarSign, Upload, Trash2, Calendar } from 'lucide-react';
 export default function GoalsView({ 
   goalForm, setGoalForm, addGoal, goals, 
   addValueToTarget, deleteGoal, setWithdrawModal,
-  handleCurrencyChange // <--- Faltava essa vírgula e esse nome aqui!
+  handleCurrencyChange, onDeposit
 }) {
 
   // --- FUNÇÃO DE MESTRE: CALCULA QUANTO POUPAR POR MÊS ---
@@ -134,7 +134,7 @@ export default function GoalsView({
               {/* Botões de Ação */}
               <div className="pt-3 mt-3 border-t border-gray-50 space-y-1.5">
                 <div className="grid grid-cols-2 gap-1.5">
-                  <button onClick={()=>addValueToTarget('goal', g.id)} className="flex items-center justify-center gap-1 text-[10px] bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 py-1.5 rounded-md font-bold border border-green-100 dark:border-green-800/30 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
+                  <button onClick={()=>onDeposit('goal', g)} className="flex items-center justify-center gap-1 text-[10px] bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 py-1.5 rounded-md font-bold border border-green-100 dark:border-green-800/30 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
                   <DollarSign size={12}/> Investir
                   </button>
                   <button onClick={()=>setWithdrawModal({show:true, type:'goal', id:g.id, name:g.name})} className="flex items-center justify-center gap-1 text-[10px] bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 py-1.5 rounded-md font-bold border border-blue-100 dark:border-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">

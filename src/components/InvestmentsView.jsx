@@ -5,7 +5,7 @@ import { TrendingUp, DollarSign, Upload, Trash2, Wallet } from 'lucide-react';
 export default function InvestmentsView({ 
   investmentForm, setInvestmentForm, addInvestment, investments, 
   addValueToTarget, deleteInvestment, setWithdrawModal,
-  handleCurrencyChange 
+  handleCurrencyChange, onDeposit
 }) {
 
   return (
@@ -69,8 +69,8 @@ export default function InvestmentsView({
             {/* AÇÕES */}
             <div className="pt-3 mt-4 border-t border-gray-50 space-y-1.5">
               <div className="grid grid-cols-2 gap-1.5">
-                <button onClick={()=>addValueToTarget('investment', inv.id)} className="flex items-center justify-center gap-1 text-[10px] bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 py-2 rounded-md font-bold border border-green-100 dark:border-green-800/30 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
-                  <DollarSign size={12}/> Aportar
+                <button onClick={()=>onDeposit('investment', inv)} className="flex items-center justify-center gap-1 text-[10px] bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 py-2 rounded-md font-bold border border-green-100 dark:border-green-800/30 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
+                <DollarSign size={12}/> Aportar
                 </button>
                 <button onClick={()=>setWithdrawModal({show:true, type:'investment', id:inv.id, name:inv.name})} className="flex items-center justify-center gap-1 text-[10px] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 py-2 rounded-md font-bold border border-indigo-100 dark:border-indigo-800/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
                   <Upload size={12}/> Resgatar

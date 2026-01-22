@@ -600,6 +600,18 @@ export default function App() {
     });
   };
 
+  // --- NOVA FUNÇÃO: ABRIR MODAL DE DEPÓSITO ---
+  const handleOpenDeposit = (type, item) => {
+    setTransactionModal({
+      show: true,
+      action: 'deposit',
+      type: type, // 'goal' ou 'investment'
+      id: item.id,
+      name: item.name
+    });
+    setTransactionForm({ amount: '' });
+  };
+
   // --- NOVA FUNÇÃO CENTRALIZADA (APORTE E RESGATE) ---
   const handleConfirmTransaction = async (e) => {
     e.preventDefault();
@@ -958,33 +970,27 @@ export default function App() {
     }
   };
   
-  // --- CÁLCULOS OTIMIZADOS (CORRIGIDO: LÓGICA DE FATURA E ID DO CARTÃO) ---
+  // --- CÁLCULOS OTIMIZADOS (CORRIGIDO: NOME EXATO "Crédito") ---
   const totals = React.useMemo(() => {
     // 1. Definições de Data
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
 
-    // 2. Totais de Fatura (Calculados com a regra de fechamento)
+    // 2. Totais de Fatura (Lógica de Fechamento/Vencimento)
     let invoiceTotal = 0;
     let nextInvoiceTotal = 0;
 
     transactions.forEach(t => {
-      // Verifica se é Despesa de Cartão de Crédito (ignora Aportes)
-      if (t.type === 'despesa' && t.paymentMethod === 'Cartão de Crédito' && t.category !== 'Aporte') {
-        
-        // CORREÇÃO 1: Usa 't.card' (o ID correto) em vez de 't.cardId'
+      // CORREÇÃO AQUI: Mudado de 'Cartão de Crédito' para 'Crédito'
+      if (t.type === 'despesa' && t.paymentMethod === 'Crédito' && t.category !== 'Aporte') {
         const card = creditCards.find(c => c.id === t.card);
         
         if (card && card.closingDay) {
             const closingDay = parseInt(card.closingDay);
             const tDate = new Date(t.date + 'T12:00:00');
 
-            // CORREÇÃO 2: Lógica de "Melhor Dia de Compra"
-            // Fatura Atual (do mês selecionado): Compras entre [Fechamento Mês Anterior] e [Fechamento Atual]
             const currentInvoiceStart = new Date(currentYear, currentMonth - 1, closingDay);
             const currentInvoiceEnd = new Date(currentYear, currentMonth, closingDay);
-            
-            // Próxima Fatura: Compras após o fechamento deste mês
             const nextInvoiceEnd = new Date(currentYear, currentMonth + 1, closingDay);
 
             if (tDate >= currentInvoiceStart && tDate < currentInvoiceEnd) {
@@ -993,7 +999,6 @@ export default function App() {
                 nextInvoiceTotal += Number(t.value);
             }
         } else {
-            // Fallback: Se o cartão não tiver dia de fechamento configurado (ou for antigo sem ID), usa o mês civil
             const [y, m] = t.date.split('-');
             if ((parseInt(m) - 1) === currentMonth && parseInt(y) === currentYear) {
                 invoiceTotal += Number(t.value);
@@ -1002,7 +1007,7 @@ export default function App() {
       }
     });
 
-    // 3. Filtrar Transações do Mês (Para Gráficos e Totais Mensais - Visão Contábil)
+    // 3. Filtrar Transações do Mês
     const currentMonthTrans = transactions.filter(t => {
       if (!t.date) return false;
       const [y, m] = t.date.split('-');
@@ -1013,18 +1018,19 @@ export default function App() {
       .filter(t => t.type === 'receita' && t.category !== 'Resgate' && t.category !== 'Estorno')
       .reduce((acc, c) => acc + Number(c.value), 0);
 
+    // CORREÇÃO AQUI TAMBÉM: Filtra 'Crédito' para não somar na despesa de caixa
     const exp = currentMonthTrans
-      .filter(t => t.type === 'despesa' && t.category !== 'Aporte')
+      .filter(t => t.type === 'despesa' && t.category !== 'Aporte' && t.paymentMethod !== 'Crédito')
       .reduce((acc, c) => acc + Number(c.value), 0);
 
     // 4. SALDO LIVRE (REAL)
-    // Entra tudo que é receita. Sai tudo que é despesa (EXCETO Crédito, pois Crédito vira fatura e só sai quando pagamos a fatura via Pix)
     const todayStr = new Date().toISOString().split('T')[0];
     const accBalance = transactions
       .filter(t => t.date <= todayStr)
       .reduce((acc, c) => {
         if (c.type === 'receita') return acc + Number(c.value);
-        if (c.type === 'despesa' && c.paymentMethod !== 'Cartão de Crédito') return acc - Number(c.value);
+        // CORREÇÃO AQUI TAMBÉM: Filtra 'Crédito' para não debitar do saldo
+        if (c.type === 'despesa' && c.paymentMethod !== 'Crédito') return acc - Number(c.value);
         return acc;
       }, 0);
 
@@ -1048,7 +1054,10 @@ export default function App() {
         return (parseInt(m) - 1) === d.getMonth() && parseInt(y) === d.getFullYear();
       });
       const mInc = monthTrans.filter(t => t.type === 'receita' && t.category !== 'Resgate').reduce((acc, c) => acc + Number(c.value), 0);
-      const mExp = monthTrans.filter(t => t.type === 'despesa' && t.category !== 'Aporte').reduce((acc, c) => acc + Number(c.value), 0);
+      
+      // Aqui mantemos 'Crédito' fora para o gráfico bater com o saldo
+      const mExp = monthTrans.filter(t => t.type === 'despesa' && t.category !== 'Aporte' && t.paymentMethod !== 'Crédito').reduce((acc, c) => acc + Number(c.value), 0);
+      
       return { 
         name: d.toLocaleDateString('pt-BR', { month: 'short' }) + '/' + d.getFullYear(), 
         Receita: mInc, 
@@ -1066,8 +1075,8 @@ export default function App() {
       totalPatrimony: accBalance + goalsTotal + investTotal,
       pieData: pData,
       barData: bData,
-      invoiceTotal,      // Sincronizado
-      nextInvoiceTotal   // Sincronizado
+      invoiceTotal,
+      nextInvoiceTotal
     };
   }, [transactions, goals, investments, currentDate, creditCards]);
 
@@ -1299,10 +1308,11 @@ export default function App() {
               setGoalForm={setGoalForm}
               addGoal={addGoal}
               goals={goals}
-              addValueToTarget={addValueToTarget} // <--- Adicionado
+              addValueToTarget={addValueToTarget}
               deleteGoal={deleteGoal}
-              setWithdrawModal={setWithdrawModal} // <--- Adicionado
+              setWithdrawModal={setWithdrawModal}
               handleCurrencyChange={handleCurrencyChange}
+              onDeposit={handleOpenDeposit}
             />
           )}
 
@@ -1316,6 +1326,7 @@ export default function App() {
               deleteInvestment={deleteInvestment}
               setWithdrawModal={setWithdrawModal} // <--- Adicionado
               handleCurrencyChange={handleCurrencyChange}
+              onDeposit={handleOpenDeposit}
             />
           )}
 

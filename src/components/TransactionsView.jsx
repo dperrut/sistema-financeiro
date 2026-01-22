@@ -1,4 +1,4 @@
-// --- COMPONENTE: TELA DE LANÇAMENTOS (LAYOUT LADO A LADO 35/65) ---
+// --- COMPONENTE: TELA DE LANÇAMENTOS (CORRIGIDO: GERAL x FATURA) ---
 import React, { useState, useEffect } from 'react';
 import { DollarSign, List, Edit, Trash2, Calendar, CreditCard, Wallet, Target, PieChart, ArrowUpCircle, ArrowDownCircle, TrendingUp, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import { ref, onValue } from 'firebase/database';
@@ -20,6 +20,8 @@ export default function TransactionsView({
   // 1. Estado para armazenar os cartões reais
   const [creditCards, setCreditCards] = useState([]);
   const [activeFilter, setActiveFilter] = useState('Geral'); // Agora armazena o ID do cartão ou 'Geral'
+  // ESTADO PARA CONTROLE DE ABAS NO MOBILE
+  const [mobileTab, setMobileTab] = useState('list'); // 'form' ou 'list'
   
   const PAYMENT_METHODS = ["Pix", "Dinheiro", "Débito", "Crédito"];
 
@@ -30,7 +32,6 @@ export default function TransactionsView({
       const unsubscribe = onValue(cardsRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          // Mapeia os cartões mantendo o ID (chave do firebase)
           const cardsList = Object.entries(data).map(([key, val]) => ({ id: key, ...val }));
           setCreditCards(cardsList);
         } else {
@@ -41,28 +42,23 @@ export default function TransactionsView({
     }
   }, [currentUser]);
 
-  // --- LÓGICA DE FATURA (O CÉREBRO NOVO) ---
-  const getInvoiceStatus = (card) => {
+  // --- LÓGICA DE FATURA (CORRIGIDA COM STATUS 'VAZIA') ---
+  // Agora recebe 'totalValue' para saber se está zerada
+  const getInvoiceStatus = (card, totalValue = 0) => {
     if (!card.closingDay || !card.dueDay) return null;
 
-    // 1. Definição das Datas Limite para o Mês SELECIONADO NA TELA (currentDate)
+    // 1. Definição das Datas
     const viewYear = currentDate.getFullYear();
     const viewMonth = currentDate.getMonth(); 
 
-    // Data de Fechamento da Fatura Visualizada
     const closingDate = new Date(viewYear, viewMonth, parseInt(card.closingDay));
-    
-    // Data de Abertura (Fechamento do mês anterior)
     const openingDate = new Date(viewYear, viewMonth - 1, parseInt(card.closingDay));
-
-    // Data de Vencimento
     const dueDate = new Date(viewYear, viewMonth, parseInt(card.dueDay));
 
-    // 2. Data de Hoje (Real)
     const today = new Date();
     today.setHours(0,0,0,0);
 
-    // 3. Verifica se já foi paga
+    // 2. Verifica se já foi paga
     const isPaid = transactions.some(t => {
         const tDate = new Date(t.date + 'T12:00:00');
         const sameMonth = tDate.getMonth() === viewMonth && tDate.getFullYear() === viewYear;
@@ -70,14 +66,19 @@ export default function TransactionsView({
         return sameMonth && isPayment;
     });
 
-    // 4. Definição do Status
+    // 3. Definição do Status (PRIORIDADE CORRIGIDA)
     let status = 'aberta'; 
+    
     if (isPaid) {
         status = 'paga';
-    } else if (today > dueDate) {
+    } else if (totalValue === 0 && today > closingDate) {
+        // CORREÇÃO: Se valor é 0 e já fechou, não é atrasada, é vazia.
+        status = 'vazia';
+    } else if (today > dueDate && totalValue > 0) {
+        // Só é atrasada se tiver valor > 0
         status = 'atrasada';
     } else if (today >= closingDate) {
-        status = 'fechada'; // Já fechou, esperando pagamento
+        status = 'fechada';
     } else {
         status = 'aberta'; 
     }
@@ -119,19 +120,19 @@ export default function TransactionsView({
     // Se for Cartão, aplica a lógica do ciclo
     const card = creditCards.find(c => c.id === activeFilter);
     if (!card || !card.closingDay) {
-        // Fallback (mostra mês civil se não tiver dia configurado)
         return transactions.filter(t => { 
             const [y, m] = t.date.split('-'); 
             return (parseInt(m)-1)===currentDate.getMonth() && parseInt(y)===currentDate.getFullYear() && t.card === activeFilter;
         });
     }
 
-    const info = getInvoiceStatus(card);
+    const info = getInvoiceStatus(card); // Aqui não precisamos do valor total, apenas datas
     
-    // Regra do Ciclo: Transação deve ser >= Abertura E < Fechamento
     return transactions.filter(t => {
         if (t.card !== activeFilter) return false;
         const tDate = new Date(t.date + 'T12:00:00');
+        // Proteção contra datas inválidas
+        if (!info || !info.openingDate || !info.closingDate) return false;
         return tDate >= info.openingDate && tDate < info.closingDate;
     });
   };
@@ -141,7 +142,8 @@ export default function TransactionsView({
   
   // Dados do cartão ativo
   const activeCardData = creditCards.find(c => c.id === activeFilter);
-  const invoiceInfo = activeCardData ? getInvoiceStatus(activeCardData) : null;
+  // Passamos o total para a função saber se está vazia
+  const invoiceInfo = activeCardData ? getInvoiceStatus(activeCardData, invoiceTotal) : null;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-10">
@@ -239,11 +241,27 @@ export default function TransactionsView({
         </div>
       </div>
 
-      {/* --- GRID PRINCIPAL: LADO A LADO --- */}
+      {/* NAVEGAÇÃO MOBILE */}
+      <div className="lg:hidden flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl mb-4">
+        <button 
+            onClick={() => setMobileTab('form')}
+            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${mobileTab === 'form' ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
+        >
+            <Edit size={16}/> Novo Lançamento
+        </button>
+        <button 
+            onClick={() => setMobileTab('list')}
+            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${mobileTab === 'list' ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
+        >
+            <List size={16}/> Ver Extrato
+        </button>
+      </div>
+
+      {/* --- GRID PRINCIPAL --- */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* 2. COLUNA ESQUERDA: FORMULÁRIOS (35% - Sticky) */}
-        <div className="lg:col-span-4 space-y-4 sticky top-4">
+        {/* 2. COLUNA ESQUERDA: FORMULÁRIOS (Sticky) */}
+        <div className={`lg:col-span-4 space-y-4 lg:sticky lg:top-4 ${mobileTab === 'list' ? 'hidden lg:block' : 'block'}`}>
             
             {/* Formulário Receita */}
             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-green-500 transition-colors">
@@ -289,14 +307,13 @@ export default function TransactionsView({
                 </div>
             </div>
 
-        {/* FORMULÁRIO DE DESPESA (VERSÃO CORRIGIDA: SALVA O ID DO CARTÃO) */}
+        {/* FORMULÁRIO DE DESPESA */}
         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-red-500 transition-colors">
             <h3 className="text-xs font-extrabold text-red-600 dark:text-red-400 uppercase mb-3 flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Nova Despesa
             </h3>
             
             <div className="space-y-2">
-                {/* LINHA 1: Descrição */}
                 <input 
                     className="w-full p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-all" 
                     placeholder="Descrição" 
@@ -304,7 +321,6 @@ export default function TransactionsView({
                     onChange={e=>setExpenseForm({...expenseForm, description:e.target.value})}
                 />
                 
-                {/* LINHA 2: Valor e Data */}
                 <div className="flex gap-2">
                     <input 
                         className="flex-1 w-full p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-all font-bold" 
@@ -321,7 +337,6 @@ export default function TransactionsView({
                     />
                 </div>
 
-                {/* LINHA 3: Configurações de Parcela */}
                 <div className="flex flex-wrap gap-2">
                     <button
                         type="button"
@@ -354,7 +369,6 @@ export default function TransactionsView({
                     )}
                 </div>
 
-                {/* LINHA 4: Forma de Pagamento e Categoria */}
                 <div className="grid grid-cols-2 gap-2">
                     <select 
                         className="w-full p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-all" 
@@ -373,15 +387,13 @@ export default function TransactionsView({
                     </select>
                 </div>
 
-                {/* LINHA 5: Cartão (AGORA SALVA O ID E MOSTRA O NOME) */}
                 {expenseForm.paymentMethod === 'Crédito' && (
                       <select 
                         className="w-full p-2 text-xs border rounded-lg bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-gray-800 dark:border-yellow-700 dark:text-yellow-200 outline-none focus:ring-1 focus:ring-yellow-500 transition-all font-bold animate-fadeIn"
                         value={expenseForm.card || ''} 
-                        onChange={e=>setExpenseForm({...expenseForm, card: e.target.value})} // Salva o ID (value)
+                        onChange={e=>setExpenseForm({...expenseForm, card: e.target.value})}
                     >
                         <option value="">Selecione o Cartão...</option>
-                        {/* O value é o ID, o conteúdo visual é o Nome */}
                         {creditCards.map(c => (
                             <option key={c.id} value={c.id}>{c.name}</option> 
                         ))}
@@ -399,93 +411,118 @@ export default function TransactionsView({
       </div>
 
         {/* 3. COLUNA DIREITA: EXTRATO (65%) */}
-        <div className="lg:col-span-8">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 min-h-[500px] transition-colors">
-                {/* Cabeçalho Inteligente da Fatura */}
-                <div className="mb-6 flex justify-between items-start">
-                    <div>
-                        <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg flex items-center gap-2">
-                            {activeFilter === 'Geral' ? <><List className="text-blue-500"/> Extrato de Movimentações</> : <><CreditCard className="text-purple-500"/> Fatura {activeCardData?.name}</>}
-                        </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {activeFilter === 'Geral' ? `Visão completa de ${formatMonthYear(currentDate)}` : `Ciclo de Fatura para ${formatMonthYear(currentDate)}`}
-                        </p>
-                    </div>
-                    
-                    {/* STATUS DA FATURA (Só aparece se for cartão e tiver dados) */}
-                    {activeFilter !== 'Geral' && invoiceInfo && (
-                        <div className={`flex flex-col items-end ${invoiceInfo.isPaid ? 'opacity-70' : ''}`}>
-                            <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 mb-1 ${
-                                invoiceInfo.status === 'paga' ? 'bg-green-100 text-green-700' :
-                                invoiceInfo.status === 'fechada' ? 'bg-blue-100 text-blue-700' :
-                                invoiceInfo.status === 'atrasada' ? 'bg-red-100 text-red-700' :
-                                'bg-yellow-100 text-yellow-700' // Aberta
-                            }`}>
-                                {invoiceInfo.status === 'paga' && <><CheckCircle size={12}/> FATURA PAGA</>}
-                                {invoiceInfo.status === 'fechada' && <><AlertCircle size={12}/> FECHADA</>}
-                                {invoiceInfo.status === 'atrasada' && <><AlertCircle size={12}/> ATRASADA</>}
-                                {invoiceInfo.status === 'aberta' && <><Clock size={12}/> ABERTA</>}
-                            </div>
-                            
-                            <div className="text-right">
-                                <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
-                                    Vencimento {invoiceInfo.dueDate.getDate()}/{invoiceInfo.dueDate.getMonth()+1}
-                                </p>
-                                <p className={`text-2xl font-extrabold ${invoiceInfo.isPaid ? 'text-green-500 line-through' : 'text-gray-800 dark:text-white'}`}>
-                                    R$ {invoiceTotal.toFixed(2)}
-                                </p>
-                                
-                                {/* BOTÃO PAGAR FATURA */}
-                                {!invoiceInfo.isPaid && invoiceTotal > 0 && (
-                                    <button 
-                                        onClick={() => handlePayInvoice(activeCardData, invoiceTotal)}
-                                        className="mt-2 text-[10px] font-bold bg-gray-800 dark:bg-white text-white dark:text-gray-800 px-4 py-1.5 rounded-lg shadow hover:opacity-90 transition-opacity flex items-center gap-1 ml-auto"
-                                    >
-                                        Pagar Fatura <ArrowUpCircle size={10}/>
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-        {/* BARRA DE FILTROS DINÂMICA (LÓGICA VIA ID) */}
-        <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
-            {/* Botão GERAL */}
-            <button 
-                onClick={() => setActiveFilter('Geral')}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all whitespace-nowrap ${
-                    activeFilter === 'Geral' 
-                    ? 'bg-gray-800 text-white dark:bg-white dark:text-gray-800 ring-2 ring-offset-1 ring-gray-800 dark:ring-white' 
-                    : 'bg-white text-gray-500 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300'
-                }`}
-            >
-                Geral
-            </button>
-    
-            <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
-
-            {/* Botões dos Cartões Reais (USAM ID PARA FILTRAR) */}
-            {creditCards.map(card => (
+        <div className={`lg:col-span-8 ${mobileTab === 'form' ? 'hidden lg:block' : 'block'}`}>
+            
+            {/* --- [MUDANÇA AQUI] --- */}
+            {/* A BARRA DE FILTROS AGORA MORA FORA DO CARTÃO (NO TOPO) */}
+            <div className="flex items-center gap-2 mb-4 overflow-x-auto p-2 scrollbar-hide">
+                {/* Botão GERAL */}
                 <button 
-                    key={card.id}
-                    onClick={() => setActiveFilter(card.id)} // Seta o filtro pelo ID
-                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
-                        activeFilter === card.id // Compara pelo ID
-                        ? `bg-gradient-to-r ${card.color || 'from-gray-700 to-gray-900'} text-white shadow-md ring-2 ring-offset-1 ring-gray-400` 
+                    onClick={() => setActiveFilter('Geral')}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all whitespace-nowrap ${
+                        activeFilter === 'Geral' 
+                        ? 'bg-gray-800 text-white dark:bg-white dark:text-gray-800 ring-2 ring-offset-1 ring-gray-800 dark:ring-white' 
                         : 'bg-white text-gray-500 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300'
                     }`}
                 >
-                    <CreditCard size={12}/> {card.name}
+                    Geral
                 </button>
-            ))}
-        </div>
+        
+                <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+
+                {/* Botões dos Cartões Reais */}
+                {creditCards.map(card => (
+                    <button 
+                        key={card.id}
+                        onClick={() => setActiveFilter(card.id)}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+                            activeFilter === card.id 
+                            ? `bg-gradient-to-r ${card.color || 'from-gray-700 to-gray-900'} text-white shadow-md ring-2 ring-offset-1 ring-gray-400` 
+                            : 'bg-white text-gray-500 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300'
+                        }`}
+                    >
+                        <CreditCard size={12}/> {card.name}
+                    </button>
+                ))}
+            </div>
+            {/* --- [FIM DA MUDANÇA DA BARRA] --- */}
+
+            {/* O CARTÃO PRINCIPAL COMEÇA AQUI */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 min-h-[500px] transition-colors">
+                
+                {/* LÓGICA DE EXIBIÇÃO: GERAL vs FATURA */}
+                {activeFilter === 'Geral' ? (
+                     /* CABEÇALHO SIMPLES (Para Geral) */
+                    <div className="mb-6 flex justify-between items-start">
+                        <div>
+                            <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg flex items-center gap-2">
+                                <List className="text-blue-500"/> Extrato de Movimentações
+                            </h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Visão completa de {formatMonthYear(currentDate)}
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    /* CABEÇALHO TICKET DE LUXO (Apenas para Cartões) */
+                    <div className="mb-6 bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+                        {/* PARTE DE CIMA */}
+                        <div className="flex justify-between items-start mb-4">
+                            {/* [1] BLOCO ESQUERDO */}
+                            <div className="flex flex-col gap-1">
+                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base flex items-center gap-2">
+                                    <CreditCard className="text-purple-600 dark:text-purple-400" size={18}/> 
+                                    {activeCardData?.name}
+                                </h3>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                                    Ciclo: {formatMonthYear(currentDate)}
+                                </p>
+                            </div>
+
+                            {/* [2] BLOCO DIREITO: Status e Vencimento */}
+                            {invoiceInfo && (
+                                <div className="flex flex-col items-end gap-1.5">
+                                    <div className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                        invoiceInfo.status === 'paga' ? 'bg-green-100 text-green-700' :
+                                        invoiceInfo.status === 'fechada' ? 'bg-blue-100 text-blue-700' :
+                                        invoiceInfo.status === 'atrasada' ? 'bg-red-100 text-red-700' :
+                                        invoiceInfo.status === 'vazia' ? 'bg-gray-100 text-gray-500' :
+                                        'bg-yellow-100 text-yellow-700'
+                                    }`}>
+                                        {invoiceInfo.status === 'vazia' ? 'SEM FATURA' : invoiceInfo.status}
+                                    </div>
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase">
+                                        Vence {invoiceInfo.dueDate.getDate()}/{invoiceInfo.dueDate.getMonth()+1}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* [3] PARTE DE BAIXO */}
+                        <div className="flex items-center justify-between pt-4 border-t border-dashed border-gray-200 dark:border-gray-700">
+                            <div className="flex flex-col">
+                                <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Valor Atual</span>
+                                <span className={`text-2xl font-black ${invoiceInfo?.isPaid ? 'text-green-500 line-through' : 'text-gray-900 dark:text-white'}`}>
+                                    R$ {invoiceTotal.toFixed(2)}
+                                </span>
+                            </div>
+                            
+                            {!invoiceInfo?.isPaid && invoiceTotal > 0 && (
+                                <button
+                                    onClick={() => handlePayInvoice(activeCardData, invoiceTotal)}
+                                    className="bg-gray-900 hover:bg-black dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-gray-200 dark:shadow-none active:scale-95 transition-all flex items-center gap-2"
+                                >
+                                    Pagar <ArrowUpCircle size={14}/>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
                 
                 <div className="space-y-2">
-                {/* AQUI ESTÁ A MUDANÇA: Usamos 'filteredList' direto */}
+                {/* LISTA DE TRANSAÇÕES (MANTIDA IGUAL) */}
                 {filteredList.slice().reverse().map(t => (
                     <div key={t.id} className={`group flex flex-col md:flex-row md:items-center justify-between border-b border-gray-50 dark:border-gray-700/50 last:border-0 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all ${editingId === t.id ? 'bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800' : ''}`}>
-                    {/* ... (O CONTEÚDO DO CARD DA TRANSAÇÃO CONTINUA IGUALZINHO) ... */}
                     <div className="flex items-start gap-3 mb-2 md:mb-0">
                         <div className={`p-2.5 rounded-lg ${t.type === 'receita' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}>{t.type === 'receita' ? <DollarSign size={18}/> : <CreditCard size={18}/>}</div>
                         <div>
@@ -495,7 +532,9 @@ export default function TransactionsView({
                             <span>•</span>
                             <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-gray-600 dark:text-gray-300">{t.category}</span>
                             <span>•</span>
-                            <span className="text-indigo-500 dark:text-indigo-400 font-medium">{t.authorName}</span>
+                            <span className="text-indigo-500 dark:text-indigo-400 font-medium" title={t.authorName}>
+                            {t.authorName ? t.authorName.split(' ')[0] : 'Membro'}
+                            </span>
                             {t.isFixed && <span className="text-purple-500 font-bold ml-1" title="Despesa Fixa">↺ Fixa</span>}
                         </div>
                         </div>
@@ -511,7 +550,6 @@ export default function TransactionsView({
                     </div>
                 ))}
                 
-                {/* AQUI TAMBÉM MUDOU: Usamos 'filteredList' para ver se está vazio */}
                 {filteredList.length === 0 && (
                     <div className="text-center text-gray-400 dark:text-gray-500 py-20 flex flex-col items-center">
                     <List size={48} className="mb-3 opacity-20"/>
