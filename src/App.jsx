@@ -411,7 +411,37 @@ export default function App() {
     setEditingId(null);
   };
 
+  // --- FUNÇÃO REMOVE TRANSACTION TURBINADA (DELEÇÃO EM CASCATA) ---
   const removeTransaction = (id) => { 
+    // 1. Encontra a transação na memória para analisar
+    const transaction = transactions.find(t => t.id === id);
+    if (!transaction) return; // Segurança caso não ache
+
+    // 2. Verifica se é parcelada (tem um ID de Grupo)
+    if (transaction.installmentGroupId) {
+        const confirmAll = window.confirm(
+            `Esta despesa faz parte de um parcelamento (${transaction.installmentIndex}/${transaction.installments}).\n\nDeseja excluir TODAS as parcelas desta compra de uma vez?`
+        );
+
+        if (confirmAll) {
+            // MODO CASCATA: Apaga a família inteira
+            const groupId = transaction.installmentGroupId;
+            const allInstallments = transactions.filter(t => t.installmentGroupId === groupId);
+            
+            // Prepara as deleções
+            const updates = {};
+            allInstallments.forEach(t => {
+                updates[`families/${currentUser.familyId}/transactions/${t.id}`] = null;
+            });
+
+            update(ref(db), updates)
+                .then(() => showToast(`${allInstallments.length} parcelas excluídas com sucesso!`, "success"))
+                .catch(() => showToast("Erro ao excluir parcelas.", "error"));
+            return; // Encerra aqui, não executa o código de baixo
+        }
+    }
+
+    // 3. MODO SIMPLES (Se não for parcelada ou se o usuário cancelou a cascata)
     if (window.confirm("Tem certeza que deseja excluir este lançamento?")) {
       remove(ref(db, `families/${currentUser.familyId}/transactions/${id}`)); 
       showToast("Lançamento excluído.", "success");
