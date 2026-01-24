@@ -7,7 +7,8 @@ export default function DashboardView({
   totalPatrimony, accumulatedBalance, totalGoals, totalInvestments, 
   monthlyIncome, monthlyExpense, monthlyBalance, 
   pieData, barData, COLORS,
-  invoiceTotal, nextInvoiceTotal 
+  invoiceTotal, nextInvoiceTotal,
+  overdueCount = 0 // <--- NOVO: Recebe a quantidade de faturas atrasadas (padrão 0)
 }) {
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-6"> {/* Reduzi space-y-6 para 4 e pb-10 para 6 */}
@@ -74,12 +75,29 @@ export default function DashboardView({
                 </h3>
                 
                 <div className="flex gap-4 items-center">
-                    {/* Atual */}
-                    <div className="flex-1">
-                        <p className="text-[9px] font-bold text-orange-500 uppercase mb-0.5">Vence Agora</p>
-                        <p className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-none">R$ {(invoiceTotal || 0).toFixed(2)}</p>
+                    {/* COLUNA 1: A PAGAR (COM ALERTA DE ATRASO) */}
+                    <div className="flex-1 relative">
+                        {/* Se tiver atraso, mostra bolinha piscando */}
+                        {overdueCount > 0 && (
+                             <span className="absolute -top-1 right-0 flex h-2 w-2">
+                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                               <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                             </span>
+                        )}
+
+                        <p className={`text-[9px] font-bold uppercase mb-0.5 ${overdueCount > 0 ? 'text-red-500 animate-pulse' : 'text-orange-500'}`}>
+                            {overdueCount > 0 ? `⚠️ Atrasado (${overdueCount})` : 'A Pagar'}
+                        </p>
+                        
+                        <p className={`text-lg font-bold leading-none ${overdueCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100'}`}>
+                            R$ {(invoiceTotal || 0).toFixed(2)}
+                        </p>
+                        
                         <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full mt-1.5 overflow-hidden">
-                            <div className="bg-orange-500 h-full rounded-full" style={{ width: '70%' }}></div>
+                            <div 
+                                className={`h-full rounded-full ${overdueCount > 0 ? 'bg-red-500' : 'bg-orange-500'}`} 
+                                style={{ width: '70%' }}
+                            ></div>
                         </div>
                     </div>
                     {/* Divisor */}

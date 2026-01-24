@@ -42,8 +42,7 @@ export default function TransactionsView({
     }
   }, [currentUser]);
 
-  // --- LÓGICA DE FATURA (CORRIGIDA COM STATUS 'VAZIA') ---
-  // Agora recebe 'totalValue' para saber se está zerada
+  // --- LÓGICA DE FATURA (CORRIGIDA: RASTREIO GLOBAL) ---
   const getInvoiceStatus = (card, totalValue = 0) => {
     if (!card.closingDay || !card.dueDay) return null;
 
@@ -58,24 +57,31 @@ export default function TransactionsView({
     const today = new Date();
     today.setHours(0,0,0,0);
 
-    // 2. Verifica se já foi paga
-    const isPaid = transactions.some(t => {
-        const tDate = new Date(t.date + 'T12:00:00');
-        const sameMonth = tDate.getMonth() === viewMonth && tDate.getFullYear() === viewYear;
-        const isPayment = t.description.toLowerCase().includes('fatura') && t.description.toLowerCase().includes(card.name.toLowerCase());
-        return sameMonth && isPayment;
+    // 2. BUSCA GLOBAL DE PAGAMENTO (O BINÓCULO 🔭)
+    // Procuramos em TODAS as transações se existe alguma pagando ESTE mês específico
+    const referenceTag = `(Ref: ${formatMonthYear(currentDate)})`; // Ex: (Ref: dezembro de 2025)
+    
+    const paymentFound = transactions.find(t => {
+        // É um pagamento de cartão?
+        const isPaymentCat = t.category === 'Pagamento de Cartão' || (t.description && t.description.toLowerCase().includes('pagamento fatura'));
+        // É deste cartão?
+        const isSameCard = t.description && t.description.toLowerCase().includes(card.name.toLowerCase());
+        // Tem a etiqueta deste mês?
+        const hasRef = t.description && t.description.includes(referenceTag);
+        
+        return isPaymentCat && isSameCard && hasRef;
     });
 
-    // 3. Definição do Status (PRIORIDADE CORRIGIDA)
+    // 3. Definição do Status
     let status = 'aberta'; 
+    let paidDate = null; // Data em que foi paga
     
-    if (isPaid) {
+    if (paymentFound) {
         status = 'paga';
+        paidDate = paymentFound.date; // Captura a data do pagamento para exibir
     } else if (totalValue === 0 && today > closingDate) {
-        // CORREÇÃO: Se valor é 0 e já fechou, não é atrasada, é vazia.
         status = 'vazia';
     } else if (today > dueDate && totalValue > 0) {
-        // Só é atrasada se tiver valor > 0
         status = 'atrasada';
     } else if (today >= closingDate) {
         status = 'fechada';
@@ -83,28 +89,32 @@ export default function TransactionsView({
         status = 'aberta'; 
     }
 
-    return { status, openingDate, closingDate, dueDate, isPaid };
+    return { status, openingDate, closingDate, dueDate, isPaid: !!paymentFound, paidDate };
   };
 
-  // Função para Pagar Fatura
+  // Função para Pagar Fatura (Versão com Rastro de Referência)
   const handlePayInvoice = (card, totalValue) => {
-    if (!window.confirm(`Confirmar pagamento da fatura do ${card.name} no valor de R$ ${totalValue.toFixed(2)}?`)) return;
+    // Cria a "Etiqueta" de referência (Ex: Ref: dezembro de 2025)
+    const referenceTag = `(Ref: ${formatMonthYear(currentDate)})`;
+
+    if (!window.confirm(`Confirmar pagamento da fatura do ${card.name} referente a ${formatMonthYear(currentDate)}?`)) return;
+
+    if (setEditingId) setEditingId(null);
 
     const paymentData = {
-        description: `Pagamento Fatura ${card.name}`,
+        // AQUI ESTÁ A MÁGICA: Adicionamos o Mês de Referência na descrição
+        description: `Pagamento Fatura ${card.name} ${referenceTag}`,
         amount: totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-        category: 'Outros', 
+        value: totalValue,
+        category: 'Pagamento de Cartão',
         paymentMethod: 'Pix', 
-        date: new Date().toISOString().split('T')[0],
-        isFixed: false
+        date: new Date().toISOString().split('T')[0], // Data do pagamento (Hoje)
+        isFixed: false,
+        installments: '1',
+        card: null
     };
     
-    setExpenseForm(prev => ({ ...prev, ...paymentData }));
-    
-    setTimeout(() => {
-        addTransaction('expense'); 
-        alert("Pagamento lançado! A fatura deve aparecer como paga.");
-    }, 100);
+    addTransaction('expense', paymentData);
   };
 
   // --- FILTRAGEM AVANÇADA ---
@@ -502,18 +512,31 @@ export default function TransactionsView({
                         <div className="flex items-center justify-between pt-4 border-t border-dashed border-gray-200 dark:border-gray-700">
                             <div className="flex flex-col">
                                 <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Valor Atual</span>
-                                <span className={`text-2xl font-black ${invoiceInfo?.isPaid ? 'text-green-500 line-through' : 'text-gray-900 dark:text-white'}`}>
+                                <span className={`text-2xl font-black ${invoiceInfo?.isPaid ? 'text-green-500 line-through decoration-2' : 'text-gray-900 dark:text-white'}`}>
                                     R$ {invoiceTotal.toFixed(2)}
                                 </span>
                             </div>
                             
-                            {!invoiceInfo?.isPaid && invoiceTotal > 0 && (
-                                <button
-                                    onClick={() => handlePayInvoice(activeCardData, invoiceTotal)}
-                                    className="bg-gray-900 hover:bg-black dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-gray-200 dark:shadow-none active:scale-95 transition-all flex items-center gap-2"
-                                >
-                                    Pagar <ArrowUpCircle size={14}/>
-                                </button>
+                            {/* SE JÁ PAGO: Mostra aviso de sucesso */}
+                            {invoiceInfo?.isPaid ? (
+                                <div className="text-right">
+                                    <div className="text-green-600 dark:text-green-400 font-bold text-xs flex items-center justify-end gap-1">
+                                        <CheckCircle size={14}/> Paga em
+                                    </div>
+                                    <div className="text-[10px] text-gray-500">
+                                        {invoiceInfo.paidDate ? invoiceInfo.paidDate.split('-').reverse().join('/') : 'Data desc.'}
+                                    </div>
+                                </div>
+                            ) : (
+                                /* SE NÃO PAGO: Mostra botão (se tiver valor) */
+                                invoiceTotal > 0 && (
+                                    <button
+                                        onClick={() => handlePayInvoice(activeCardData, invoiceTotal)}
+                                        className="bg-gray-900 hover:bg-black dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-gray-200 dark:shadow-none active:scale-95 transition-all flex items-center gap-2"
+                                    >
+                                        Pagar <ArrowUpCircle size={14}/>
+                                    </button>
+                                )
                             )}
                         </div>
                     </div>
