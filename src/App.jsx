@@ -284,7 +284,54 @@ export default function App() {
     }
   };
 
-  // --- FUNÇÃO ADD TRANSACTION TURBINADA COM PARCELAMENTO ---
+  // --- NOVO: VERIFICADOR DE LIMITES (ORÇAMENTO) ---
+  const checkBudgetAlert = async (category, amountToAdd) => {
+    // 1. Busca configurações (Precisamos ler do banco pois não temos no estado local do App)
+    // Nota: Como 'currentUser' já tem o familyId, podemos ler direto
+    if (!currentUser?.familyId) return;
+
+    try {
+        const settingsSnap = await get(ref(db, `families/${currentUser.familyId}/settings`));
+        const settings = settingsSnap.val();
+
+        if (!settings?.showBudgetLimits) return;
+        
+        const limitPercent = settings.budgetLimits?.[category];
+        if (!limitPercent || limitPercent <= 0) return;
+
+        // Precisamos da Receita Mensal. Vamos recalcular rápido baseada no mês atual da transação
+        // (Ou usar a 'totals.monthlyIncome' se a transação for do mês atual da tela)
+        // Simplificação: Usamos a monthlyIncome calculada pelo useMemo 'totals'
+        // Risco: Se a pessoa adicionar transação em outro mês, o alerta usa a renda do mês da tela. 
+        // Para MVP está aceitável.
+        
+        const limitAmount = (totals.monthlyIncome * limitPercent) / 100;
+        if (limitAmount <= 0) return;
+
+        // Calcula gasto atual nessa categoria
+        const currentMonthStr = currentDate.toISOString().slice(0, 7); // "2023-10"
+        const currentSpent = transactions
+          .filter(t => 
+            t.type === 'despesa' && 
+            t.category === category && 
+            t.date.startsWith(currentMonthStr)
+          )
+          .reduce((acc, curr) => acc + Number(curr.value), 0);
+
+        const newTotal = currentSpent + Number(amountToAdd);
+        const percentUsed = (newTotal / limitAmount) * 100;
+
+        if (percentUsed >= 100) {
+           showToast(`⚠️ CUIDADO: Limite de ${category} estourado! (${percentUsed.toFixed(0)}%)`, 'error');
+        } else if (percentUsed >= 75) {
+           showToast(`🟡 Atenção: ${category} em ${percentUsed.toFixed(0)}% do limite.`, 'warning');
+        }
+
+    } catch (e) {
+        console.error("Erro ao verificar limites", e);
+    }
+  };
+
   // --- FUNÇÃO ADD TRANSACTION TURBINADA COM PARCELAMENTO E CHECKBOX ---
   const addTransaction = async (type, directData = null) => {
     try {
@@ -296,6 +343,12 @@ export default function App() {
       // Valor digitado (pode ser total ou parcela, depende do checkbox)
       const inputVal = parseFloat(form.amount.toString().replace(/\./g, '').replace(',', '.'));
       if (isNaN(inputVal) || inputVal <= 0) return alert("Valor inválido.");
+      // --- VERIFICAÇÃO DE ORÇAMENTO ---
+      if (isExpense) {
+          // Não usamos 'await' para não travar a UI, deixa o alerta pipocar em paralelo
+          checkBudgetAlert(form.category, inputVal);
+      }
+      // -------------------------------
       
       const fid = currentUser.familyId;
       const metaData = { createdBy: currentUser.uid, authorName: currentUser.name || 'Membro' };
@@ -1373,6 +1426,7 @@ export default function App() {
         <div className={`flex-1 overflow-y-auto p-4 pb-24 md:p-8 transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-300'}`}>
           {activeTab === 'dashboard' && (
             <DashboardView 
+              currentUser={currentUser}
               totalPatrimony={totalPatrimony} 
               accumulatedBalance={accumulatedBalance} 
               totalGoals={totalGoals} 

@@ -31,6 +31,25 @@ export default function SettingsView({
   const [newCard, setNewCard] = useState({ name: '', closingDay: '', dueDay: '', last4: '', holder: '' });
   const [editingCardId, setEditingCardId] = useState(null); // NOVO: Controla qual cartão está sendo editado
 
+  // --- ADICIONAR ESTES ESTADOS NOVOS ---
+  const [showBudgetLimits, setShowBudgetLimits] = useState(false);
+  const [categoryLimits, setCategoryLimits] = useState({});
+  const [newExpenseLimit, setNewExpenseLimit] = useState('');
+
+  // Carrega configurações de limite ao iniciar
+  useEffect(() => {
+    if (currentUser?.familyId) {
+      const settingsRef = ref(db, `families/${currentUser.familyId}/settings`);
+      onValue(settingsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          setShowBudgetLimits(data.showBudgetLimits || false);
+          setCategoryLimits(data.budgetLimits || {});
+        }
+      });
+    }
+  }, [currentUser]);
+
   // Função Unificada: Criar ou Editar
   const handleSaveCard = async () => {
     if (!newCard.name || !newCard.closingDay || !newCard.dueDay) return alert("Preencha os dados principais.");
@@ -69,6 +88,31 @@ export default function SettingsView({
       // Limpa o formulário
       setNewCard({ name: '', closingDay: '', dueDay: '', last4: '', holder: '' });
     } catch (error) { console.error(error); alert("Erro ao salvar cartão."); }
+  };
+
+  // --- ADICIONAR ESTAS 3 FUNÇÕES ---
+  const toggleBudgetMode = () => {
+    const newState = !showBudgetLimits;
+    setShowBudgetLimits(newState);
+    update(ref(db, `families/${currentUser.familyId}/settings`), { showBudgetLimits: newState });
+  };
+
+  const handleUpdateLimit = (categoryName, value) => {
+    const numericValue = value.replace(/\D/g, '').slice(0, 3); // Apenas números, max 3 dígitos
+    const finalValue = numericValue ? parseInt(numericValue) : 0;
+    
+    // Atualiza localmente e no banco
+    setCategoryLimits(prev => ({...prev, [categoryName]: finalValue}));
+    update(ref(db, `families/${currentUser.familyId}/settings/budgetLimits`), { [categoryName]: finalValue });
+  };
+
+  const handleAddExpenseWithLimit = () => {
+    if (!newExpenseCat) return;
+    handleAddCategory('expense', newExpenseCat);
+    if (showBudgetLimits && newExpenseLimit) {
+        handleUpdateLimit(newExpenseCat, newExpenseLimit);
+    }
+    setNewExpenseLimit('');
   };
 
   // Função para preencher o formulário com os dados do cartão clicado
@@ -404,9 +448,22 @@ export default function SettingsView({
       {/* 2. GESTÃO DE CATEGORIAS */}
       {/* REDUZIDO: p-5 -> p-3 */}
       <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
-        <h3 className="font-bold text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-2 border-b border-gray-100 dark:border-gray-700 pb-2 text-sm">
-          <List size={18} className="text-gray-500 dark:text-gray-400"/> Personalizar Categorias
-        </h3>
+        {/* --- SUBSTITUIR O H3 POR ISTO --- */}
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-2 mb-3">
+             <h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2 text-sm">
+                <List size={18} className="text-gray-500 dark:text-gray-400"/> Personalizar Categorias
+             </h3>
+             <label className="flex items-center gap-2 cursor-pointer group">
+                <span className={`text-[10px] font-bold uppercase transition-colors ${showBudgetLimits ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`}>
+                    {showBudgetLimits ? 'Limites Ativos' : 'Definir Limites'}
+                </span>
+                <div className="relative">
+                    <input type="checkbox" className="sr-only" checked={showBudgetLimits} onChange={toggleBudgetMode} />
+                    <div className={`w-8 h-4 rounded-full shadow-inner transition-colors ${showBudgetLimits ? 'bg-purple-500' : 'bg-gray-200 dark:bg-gray-700'}`}></div>
+                    <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${showBudgetLimits ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                </div>
+             </label>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <h4 className="font-bold text-green-700 dark:text-green-400 mb-2 text-[11px] uppercase tracking-widest">Receitas</h4>
@@ -423,18 +480,55 @@ export default function SettingsView({
               ))}
             </div>
           </div>
+          {/* --- SUBSTITUIR O BLOCO DA COLUNA DE DESPESAS --- */}
           <div>
-            <h4 className="font-bold text-red-700 dark:text-red-400 mb-2 text-[11px] uppercase tracking-widest">Despesas</h4>
+            <h4 className="font-bold text-red-700 dark:text-red-400 mb-2 text-[11px] uppercase tracking-widest flex items-center gap-2">
+                Despesas
+            </h4>
+            
+            {/* INPUT DE NOVA DESPESA + PORCENTAGEM */}
             <div className="flex gap-2 mb-2">
-              <input className="flex-1 p-2 border border-gray-200 dark:border-gray-600 rounded-lg text-xs bg-gray-50 dark:bg-gray-700 dark:text-white outline-none transition-colors" placeholder="Nova..." value={newExpenseCat} onChange={e => setNewExpenseCat(e.target.value)} />
-              <button onClick={() => handleAddCategory('expense', newExpenseCat)} className="bg-red-600 dark:bg-red-700 text-white px-3 rounded-lg font-bold">+</button>
+              <input className="flex-1 p-2 border border-gray-200 dark:border-gray-600 rounded-lg text-xs bg-gray-50 dark:bg-gray-700 dark:text-white outline-none transition-colors" placeholder="Nova Despesa..." value={newExpenseCat} onChange={e => setNewExpenseCat(e.target.value)} />
+              
+              {/* CAMPO DE LIMITE (Condicional) */}
+              {showBudgetLimits && (
+                 <div className="w-12 transition-all duration-300 animate-fadeIn">
+                    <input 
+                        className="w-full p-2 border border-purple-200 dark:border-purple-800 rounded-lg text-xs bg-purple-50 dark:bg-purple-900/20 dark:text-white text-center outline-none focus:ring-1 focus:ring-purple-500 font-bold placeholder-purple-300" 
+                        placeholder="%" 
+                        maxLength={3}
+                        value={newExpenseLimit} 
+                        onChange={e => setNewExpenseLimit(e.target.value)} 
+                    />
+                 </div>
+              )}
+              {/* ATENÇÃO: Mudou a função do onClick aqui para handleAddExpenseWithLimit */}
+              <button onClick={handleAddExpenseWithLimit} className="bg-red-600 dark:bg-red-700 text-white px-3 rounded-lg font-bold">+</button>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+
+            {/* LISTA DE DESPESAS COM PORCENTAGEM */}
+            <div className="flex flex-col gap-1.5">
               {expenseCategories.map(cat => (
-                <span key={cat} className="px-2 py-1 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-md text-[10px] font-bold border border-red-100 dark:border-red-800/30 flex items-center gap-1.5">
-                  {cat}
-                  <button onClick={() => handleRemoveCategory('expense', cat)} className="text-red-300 hover:text-red-500"><XCircle size={10}/></button>
-                </span>
+                <div key={cat} className="flex items-center justify-between px-2 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-md border border-red-100 dark:border-red-800/30">
+                  <span className="text-[10px] font-bold flex items-center gap-1.5">{cat}</span>
+                  
+                  <div className="flex items-center gap-2">
+                      {/* INPUT DE LIMITE NA LISTA (Condicional) */}
+                      {showBudgetLimits && (
+                        <div className="relative flex items-center gap-1">
+                            <input 
+                                className="w-8 py-0.5 px-1 text-center text-[10px] bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 rounded text-gray-700 dark:text-gray-200 outline-none focus:border-purple-500"
+                                placeholder="0"
+                                maxLength={3}
+                                value={categoryLimits[cat] || ''}
+                                onChange={(e) => handleUpdateLimit(cat, e.target.value)}
+                            />
+                            <span className="text-[9px] opacity-50">%</span>
+                        </div>
+                      )}
+                      <button onClick={() => handleRemoveCategory('expense', cat)} className="text-red-300 hover:text-red-500 ml-1"><XCircle size={12}/></button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>

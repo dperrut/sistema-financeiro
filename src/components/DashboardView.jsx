@@ -1,9 +1,12 @@
 // --- COMPONENTE: VISÃO DO DASHBOARD (VERSÃO ULTRA COMPACTA) ---
-import React from 'react';
-import { Home, PieChart as PieIcon, TrendingUp, CreditCard, ArrowUpCircle, ArrowDownCircle, Wallet } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Home, PieChart as PieIcon, TrendingUp, CreditCard, ArrowUpCircle, ArrowDownCircle, Wallet, AlertCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ref, onValue } from 'firebase/database'; // NOVOS IMPORTS
+import { db } from '../firebase'; // NOVO IMPORT
 
 export default function DashboardView({ 
+  currentUser, 
   totalPatrimony, accumulatedBalance, totalGoals, totalInvestments, 
   monthlyIncome, monthlyExpense, monthlyBalance, 
   pieData, barData, COLORS,
@@ -13,6 +16,41 @@ export default function DashboardView({
 }) {
 
   const [showOverdueMenu, setShowOverdueMenu] = React.useState(false);
+  // --- LÓGICA DE ORÇAMENTO INTELIGENTE ---
+  const [budgetSettings, setBudgetSettings] = useState({ active: false, limits: {} });
+
+  // 1. Busca configurações no Firebase
+  useEffect(() => {
+    if (currentUser?.familyId) {
+      const settingsRef = ref(db, `families/${currentUser.familyId}/settings`);
+      const unsubscribe = onValue(settingsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          setBudgetSettings({
+            active: data.showBudgetLimits || false,
+            limits: data.budgetLimits || {}
+          });
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [currentUser]);
+
+  // 2. Calcula cores e status
+  const getBudgetStatus = (categoryName, currentSpent) => {
+    const limitPercent = budgetSettings.limits[categoryName] || 0;
+    
+    // Se não tiver limite ou modo desligado, retorna null
+    if (!budgetSettings.active || limitPercent === 0) return null;
+
+    // Calcula baseada na receita mensal
+    const limitAmount = (monthlyIncome * limitPercent) / 100;
+    const percentUsed = limitAmount > 0 ? (currentSpent / limitAmount) * 100 : 0;
+
+    if (percentUsed >= 100) return { color: 'bg-red-500', text: 'text-red-500', status: 'critical', percent: percentUsed };
+    if (percentUsed >= 75) return { color: 'bg-yellow-500', text: 'text-yellow-600', status: 'warning', percent: percentUsed };
+    return { color: 'bg-green-500', text: 'text-green-500', status: 'ok', percent: percentUsed };
+  };
   // Função para formatar dinheiro (R$ 1.000,00)
   const formatBRL = (value) => {
     return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -192,28 +230,91 @@ export default function DashboardView({
       {/* 2. GRÁFICOS (Mantidos, mas agora devem subir bastante) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
-        {/* Gráfico 1 - Pizza */}
+        {/* Gráfico 1 - Pizza (Híbrido) */}
         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 h-64 flex flex-col">
-          <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm mb-2 flex items-center gap-2">
-            <PieIcon size={14} className="text-blue-500"/> Distribuição
-          </h3>
-          <div className="flex-1 w-full min-h-0">
-            {pieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={5} dataKey="value">
-                    {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />)}
-                  </Pie>
-                  <RechartsTooltip formatter={(value) => `R$ ${formatBRL(value)}`} />
-                  <Legend verticalAlign="bottom" height={24} iconSize={8} wrapperStyle={{fontSize: '10px'}}/>
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-50">
-                <PieIcon size={32} className="mb-1"/>
-                <span className="text-xs">Sem dados</span>
-              </div>
+          <div className="flex justify-between items-center mb-2">
+             <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm flex items-center gap-2">
+                <PieIcon size={14} className="text-blue-500"/> Distribuição
+             </h3>
+             {budgetSettings.active && (
+                 <span className="text-[9px] bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 px-2 py-0.5 rounded-full font-bold uppercase border border-purple-100 dark:border-purple-800">
+                    Modo Orçamento
+                 </span>
+             )}
+          </div>
+
+          <div className="flex-1 w-full min-h-0 flex gap-4">
+            {/* COLUNA ESQUERDA: LISTA INTELIGENTE (Condicional) */}
+            {budgetSettings.active && pieData.length > 0 && (
+                <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 border-r border-gray-100 dark:border-gray-700 border-dashed">
+                    <table className="w-full">
+                        <tbody>
+                            {pieData.map((entry) => {
+                                const status = getBudgetStatus(entry.name, entry.value);
+                                return (
+                                    <tr key={entry.name} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                        <td className="py-1.5 align-middle">
+                                            <div className="flex items-center gap-1.5">
+                                                {status ? (
+                                                    <div className={`w-2 h-2 rounded-full ${status.color} ${status.status === 'critical' ? 'animate-ping' : ''}`}></div>
+                                                ) : (
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600"></div>
+                                                )}
+                                                <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300 truncate max-w-[70px]" title={entry.name}>
+                                                    {entry.name}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="text-right py-1.5">
+                                            {status ? (
+                                                <div className="flex flex-col items-end">
+                                                    <span className={`text-[9px] font-black ${status.text}`}>
+                                                        {status.percent.toFixed(0)}%
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-[9px] text-gray-400">-</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             )}
+
+            {/* COLUNA DIREITA: GRÁFICO (Adaptável) */}
+            <div className={`flex-1 min-h-0 ${budgetSettings.active ? 'w-1/2' : 'w-full'}`}>
+                {pieData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={35} outerRadius={60} paddingAngle={5} dataKey="value">
+                        {pieData.map((entry, index) => {
+                            const status = getBudgetStatus(entry.name, entry.value);
+                            const isCritical = status?.status === 'critical';
+                            return (
+                                <Cell 
+                                    key={`cell-${index}`} 
+                                    fill={COLORS[index % COLORS.length]} 
+                                    strokeWidth={0} 
+                                    className={isCritical ? "animate-pulse opacity-80" : ""} 
+                                />
+                            );
+                        })}
+                    </Pie>
+                    <RechartsTooltip formatter={(value) => `R$ ${formatBRL(value)}`} />
+                    {/* Esconde legenda no modo orçamento pois já tem a lista */}
+                    {!budgetSettings.active && <Legend verticalAlign="bottom" height={24} iconSize={8} wrapperStyle={{fontSize: '10px'}}/>}
+                    </PieChart>
+                </ResponsiveContainer>
+                ) : (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-50">
+                    <PieIcon size={32} className="mb-1"/>
+                    <span className="text-xs">Sem dados</span>
+                </div>
+                )}
+            </div>
           </div>
         </div>
 

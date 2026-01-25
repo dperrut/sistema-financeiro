@@ -57,7 +57,7 @@ export default function GoalsView({
             <input 
               type="text" 
               className="w-full p-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white outline-none focus:border-purple-400 transition-colors" 
-              placeholder="Quanto precisa? (R$)" 
+              placeholder="Qual o valor da meta? (R$)" 
               value={goalForm.targetAmount} 
               onChange={e => handleCurrencyChange(e, setGoalForm, goalForm, 'targetAmount')} 
             />
