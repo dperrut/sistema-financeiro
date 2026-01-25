@@ -18,6 +18,11 @@ export default function TransactionsView({
   activeFilter, setActiveFilter,
 }) {
 
+    // Função para formatar dinheiro BR (R$ 1.000,00)
+  const formatBRL = (value) => {
+    return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   // 1. Estado para armazenar os cartões reais
   const [creditCards, setCreditCards] = useState([]);
   // ESTADO PARA CONTROLE DE ABAS NO MOBILE
@@ -170,7 +175,7 @@ export default function TransactionsView({
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Disponível</span>
                 </div>
                 <h2 className={`text-lg font-extrabold leading-none ${accumulatedBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
-                    R$ {accumulatedBalance.toFixed(2)}
+                    R$ {formatBRL(accumulatedBalance)}
                 </h2>
             </div>
             
@@ -181,7 +186,7 @@ export default function TransactionsView({
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Patrimônio</span>
                 </div>
                 <h2 className="text-lg font-extrabold text-gray-700 dark:text-gray-200 leading-none">
-                    R$ {totalPatrimony.toFixed(2)}
+                    R$ {formatBRL(totalPatrimony)}
                 </h2>
             </div>
 
@@ -192,7 +197,7 @@ export default function TransactionsView({
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Metas</span>
                 </div>
                 <h2 className="text-lg font-extrabold text-purple-600 dark:text-purple-400 leading-none">
-                    R$ {totalGoals.toFixed(2)}
+                    R$ {formatBRL(totalGoals)}
                 </h2>
             </div>
 
@@ -203,7 +208,7 @@ export default function TransactionsView({
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Investido</span>
                 </div>
                 <h2 className="text-lg font-extrabold text-blue-600 dark:text-blue-400 leading-none">
-                    R$ {totalInvestments.toFixed(2)}
+                    R$ {formatBRL(totalInvestments)}
                 </h2>
             </div>
         </div>
@@ -218,7 +223,7 @@ export default function TransactionsView({
                     </div>
                     <div>
                         <p className="text-[9px] font-bold text-gray-400 uppercase">Receita</p>
-                        <p className="text-sm font-bold text-green-600 dark:text-green-400">R$ {monthlyIncome.toFixed(2)}</p>
+                        <p className="text-sm font-bold text-green-600 dark:text-green-400">R$ {formatBRL(monthlyIncome)}</p>
                     </div>
                  </div>
             </div>
@@ -230,7 +235,7 @@ export default function TransactionsView({
                     </div>
                     <div>
                         <p className="text-[9px] font-bold text-gray-400 uppercase">Despesa</p>
-                        <p className="text-sm font-bold text-red-600 dark:text-red-400">R$ {monthlyExpense.toFixed(2)}</p>
+                        <p className="text-sm font-bold text-red-600 dark:text-red-400">R$ {formatBRL(monthlyExpense)}</p>
                     </div>
                  </div>
             </div>
@@ -243,7 +248,7 @@ export default function TransactionsView({
                     <div>
                         <p className="text-[9px] font-bold text-gray-400 uppercase">Balanço</p>
                         <p className={`text-sm font-bold ${monthlyBalance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-500'}`}>
-                            R$ {monthlyBalance.toFixed(2)}
+                            R$ {formatBRL(monthlyBalance)}
                         </p>
                     </div>
                  </div>
@@ -513,7 +518,7 @@ export default function TransactionsView({
                             <div className="flex flex-col">
                                 <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Valor Atual</span>
                                 <span className={`text-2xl font-black ${invoiceInfo?.isPaid ? 'text-green-500 line-through decoration-2' : 'text-gray-900 dark:text-white'}`}>
-                                    R$ {invoiceTotal.toFixed(2)}
+                                    R$ {formatBRL(invoiceTotal)}
                                 </span>
                             </div>
                             
@@ -563,7 +568,7 @@ export default function TransactionsView({
                         </div>
                     </div>
                     <div className="flex items-center justify-between md:justify-end gap-4 w-full md:w-auto pl-12 md:pl-0">
-                        <span className={`font-bold text-base whitespace-nowrap ${(['Aporte', 'Resgate', 'Estorno'].includes(t.category)) ? 'text-blue-600 dark:text-blue-400' : t.type === 'receita' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{t.type === 'receita' ? '+' : '-'} R$ {Number(t.value).toFixed(2)}</span>
+                        <span className={`font-bold text-base whitespace-nowrap ${(['Aporte', 'Resgate', 'Estorno'].includes(t.category)) ? 'text-blue-600 dark:text-blue-400' : t.type === 'receita' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{t.type === 'receita' ? '+' : '-'} R$ {formatBRL(t.value)}</span>
                         <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                         {t.installmentGroupId && (<button onClick={() => setAnticipateModal({ show: true, transaction: t })} className="p-1.5 text-orange-400 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors" title="Antecipar"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg></button>)}
                         <button onClick={()=>startEditing(t)} className="p-1.5 text-blue-400 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"><Edit size={16}/></button>

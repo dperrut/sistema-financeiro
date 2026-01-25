@@ -8,6 +8,11 @@ export default function InvestmentsView({
   handleCurrencyChange, onDeposit
 }) {
 
+  // Função auxiliar para formatar dinheiro (R$ 1.000,00)
+  const formatBRL = (value) => {
+    return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       
@@ -62,7 +67,7 @@ export default function InvestmentsView({
               {/* SALDO EM DESTAQUE */}
               <div className="flex flex-col bg-slate-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600/50 transition-colors">
                 <span className="text-[10px] text-gray-400 dark:text-gray-400 font-bold uppercase tracking-wider">Saldo Acumulado</span>
-                <span className="text-xl font-black text-blue-700 dark:text-blue-400">R$ {parseFloat(inv.currentAmount || 0).toFixed(2)}</span>
+                <span className="text-xl font-black text-blue-700 dark:text-blue-400">R$ {formatBRL(inv.currentAmount || 0)}</span>
               </div>
             </div>
 

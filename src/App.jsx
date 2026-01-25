@@ -109,7 +109,12 @@ export default function App() {
   const [showPin, setShowPin] = useState(false);
 
   // --- FUNÇÕES DE FORMATAÇÃO (FASE 3) ---
-  const formatMonthYear = (date) => date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  // --- FUNÇÕES DE FORMATAÇÃO (CORRIGIDA) ---
+  const formatMonthYear = (date) => {
+    const stringData = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    // Pega a primeira letra e põe maiúscula + o resto da frase original
+    return stringData.charAt(0).toUpperCase() + stringData.slice(1);
+  };
 
   const handleCurrencyChange = (e, setter, form, field) => {
     let value = e.target.value.replace(/\D/g, "");
@@ -1348,7 +1353,7 @@ export default function App() {
                 {/* Texto do Mês (Com um destaque de cor sutil) */}
                 <div className="flex items-center gap-2">
                   <Calendar size={18} className="text-blue-500 dark:text-blue-400 mb-0.5" />
-                  <span className="font-bold text-gray-700 dark:text-gray-100 capitalize text-lg">
+                  <span className="font-bold text-gray-700 dark:text-gray-100 text-lg">
                     {formatMonthYear(currentDate)}
                   </span>
                 </div>

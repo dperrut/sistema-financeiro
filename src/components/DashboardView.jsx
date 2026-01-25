@@ -13,6 +13,10 @@ export default function DashboardView({
 }) {
 
   const [showOverdueMenu, setShowOverdueMenu] = React.useState(false);
+  // Função para formatar dinheiro (R$ 1.000,00)
+  const formatBRL = (value) => {
+    return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-6"> {/* Reduzi space-y-6 para 4 e pb-10 para 6 */}
@@ -22,44 +26,44 @@ export default function DashboardView({
         
         {/* PARTE SUPERIOR: 4 PILARES (Mais fino) */}
         <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-gray-100 dark:divide-gray-700 border-b border-gray-100 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-800">
-            {/* Item 1 */}
+            {/* Item 1 - Patrimônio */}
             <div className="p-2 flex flex-col items-center justify-center relative group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <div className="flex items-center gap-1.5 opacity-70 mb-0.5">
                     <Home size={12} className="text-blue-500" />
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Patrimônio</span>
                 </div>
                 <h2 className="text-lg font-extrabold text-gray-800 dark:text-gray-100 leading-tight">
-                    R$ {totalPatrimony.toFixed(2)}
+                    R$ {formatBRL(totalPatrimony)}
                 </h2>
             </div>
-            {/* Item 2 */}
+            {/* Item 2 - Livre */}
             <div className="p-2 flex flex-col items-center justify-center relative group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <div className="flex items-center gap-1.5 opacity-70 mb-0.5">
                     <Wallet size={12} className="text-green-500" />
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Livre</span>
                 </div>
                 <h2 className={`text-lg font-extrabold leading-tight ${accumulatedBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
-                    R$ {accumulatedBalance.toFixed(2)}
+                    R$ {formatBRL(accumulatedBalance)}
                 </h2>
             </div>
-            {/* Item 3 */}
+            {/* Item 3 - Metas */}
             <div className="p-2 flex flex-col items-center justify-center relative group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <div className="flex items-center gap-1.5 opacity-70 mb-0.5">
                     <TrendingUp size={12} className="text-purple-500" />
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Metas</span>
                 </div>
                 <h2 className="text-lg font-extrabold text-purple-600 dark:text-purple-400 leading-tight">
-                    R$ {totalGoals.toFixed(2)}
+                    R$ {formatBRL(totalGoals)}
                 </h2>
             </div>
-            {/* Item 4 */}
+            {/* Item 4 - Investido */}
             <div className="p-2 flex flex-col items-center justify-center relative group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <div className="flex items-center gap-1.5 opacity-70 mb-0.5">
                     <PieIcon size={12} className="text-blue-500" />
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Investido</span>
                 </div>
                 <h2 className="text-lg font-extrabold text-blue-600 dark:text-blue-400 leading-tight">
-                    R$ {totalInvestments.toFixed(2)}
+                    R$ {formatBRL(totalInvestments)}
                 </h2>
             </div>
         </div>
@@ -67,9 +71,8 @@ export default function DashboardView({
         {/* PARTE INFERIOR: OPERAÇÃO (Compactada) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700">
             
-            {/* ESQUERDA: CARTÕES (Padding reduzido p-3) */}
+            {/* ESQUERDA: CARTÕES */}
             <div className="p-3 relative overflow-hidden flex flex-col justify-center">
-                {/* Ícone de fundo reduzido para não atrapalhar */}
                 <div className="absolute -top-2 -right-2 p-4 opacity-[0.03] pointer-events-none">
                     <CreditCard size={80} />
                 </div>
@@ -78,79 +81,72 @@ export default function DashboardView({
                     <CreditCard size={12}/> Compromissos de Cartão
                 </h3>
                 
-                {/* COLUNA 1: A PAGAR (COM AÇÃO DE CLIQUE) */}
-                    <div className="flex-1 relative">
-                        {/* 1. BOLINHA DE ALERTA */}
-                        {overdueList.length > 0 && (
-                             <span className="absolute -top-1 right-0 flex h-2 w-2">
-                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                               <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                             </span>
-                        )}
+                {/* COLUNA 1: A PAGAR */}
+                <div className="flex-1 relative">
+                    {overdueList.length > 0 && (
+                         <span className="absolute -top-1 right-0 flex h-2 w-2">
+                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                           <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                         </span>
+                    )}
 
-                        {/* 2. MENU FLUTUANTE (SELETOR) - Só aparece se tiver múltiplos e clicar */}
-                        {showOverdueMenu && overdueList.length > 1 && (
-                            <div className="absolute top-8 left-0 z-50 bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-red-100 dark:border-red-900 w-48 p-1 animate-fadeIn">
-                                <p className="text-[9px] font-bold text-gray-400 uppercase px-2 py-1 border-b border-gray-100 dark:border-gray-700">Escolha a fatura:</p>
-                                {overdueList.map(item => (
-                                    <button 
-                                        key={item.id}
-                                        onClick={() => onNavigateToCard(item.id)}
-                                        className="w-full text-left px-2 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/20 rounded flex justify-between items-center"
-                                    >
-                                        <span>{item.name}</span>
-                                        <span className="text-red-500">R$ {item.amount.toFixed(0)}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* 3. TÍTULO CLICÁVEL */}
-                        <button 
-                            onClick={() => {
-                                if (overdueList.length === 1) {
-                                    // Se só tem 1, vai direto!
-                                    onNavigateToCard(overdueList[0].id);
-                                } else if (overdueList.length > 1) {
-                                    // Se tem vários, abre o menu
-                                    setShowOverdueMenu(!showOverdueMenu);
-                                }
-                            }}
-                            className={`text-left w-full focus:outline-none ${overdueList.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
-                        >
-                            <p className={`text-[9px] font-bold uppercase mb-0.5 transition-colors ${overdueList.length > 0 ? 'text-red-500 animate-pulse hover:text-red-600' : 'text-orange-500'}`}>
-                                {overdueList.length > 0 ? `⚠️ Atrasado (${overdueList.length})` : 'A Pagar'}
-                            </p>
-                            
-                            <p className={`text-lg font-bold leading-none ${overdueList.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100'}`}>
-                                R$ {(invoiceTotal || 0).toFixed(2)}
-                            </p>
-                        </button>
-                        
-                        {/* 4. BARRA DE PROGRESSO */}
-                        <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full mt-1.5 overflow-hidden">
-                            <div 
-                                className={`h-full rounded-full ${overdueList.length > 0 ? 'bg-red-500' : 'bg-orange-500'}`} 
-                                style={{ width: '70%' }}
-                            ></div>
+                    {/* MENU FLUTUANTE (SELETOR) */}
+                    {showOverdueMenu && overdueList.length > 1 && (
+                        <div className="absolute top-8 left-0 z-50 bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-red-100 dark:border-red-900 w-48 p-1 animate-fadeIn">
+                            <p className="text-[9px] font-bold text-gray-400 uppercase px-2 py-1 border-b border-gray-100 dark:border-gray-700">Escolha a fatura:</p>
+                            {overdueList.map(item => (
+                                <button 
+                                    key={item.id}
+                                    onClick={() => onNavigateToCard(item.id)}
+                                    className="w-full text-left px-2 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/20 rounded flex justify-between items-center"
+                                >
+                                    <span>{item.name}</span>
+                                    {/* Aqui estava .toFixed(0), mudei para formatBRL */}
+                                    <span className="text-red-500">R$ {formatBRL(item.amount)}</span>
+                                </button>
+                            ))}
                         </div>
-                    </div>
+                    )}
 
-                    {/* --- AQUI ENTRA A CAIXA AZUL QUE FALTOU --- */}
-                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                        <p className="text-[9px] font-bold text-blue-500 uppercase mb-0.5">Próximas Faturas</p>
-                        <p className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-none">
-                            R$ {(nextInvoiceTotal || 0).toFixed(2)}
+                    {/* TÍTULO CLICÁVEL */}
+                    <button 
+                        onClick={() => {
+                            if (overdueList.length === 1) onNavigateToCard(overdueList[0].id);
+                            else if (overdueList.length > 1) setShowOverdueMenu(!showOverdueMenu);
+                        }}
+                        className={`text-left w-full focus:outline-none ${overdueList.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+                    >
+                        <p className={`text-[9px] font-bold uppercase mb-0.5 transition-colors ${overdueList.length > 0 ? 'text-red-500 animate-pulse hover:text-red-600' : 'text-orange-500'}`}>
+                            {overdueList.length > 0 ? `⚠️ Atrasado (${overdueList.length})` : 'A Pagar'}
                         </p>
-                        <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full mt-1.5 overflow-hidden">
-                            <div className="bg-blue-500 h-full rounded-full" style={{ width: '40%' }}></div>
-                        </div>
+                        
+                        <p className={`text-lg font-bold leading-none ${overdueList.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100'}`}>
+                            R$ {formatBRL(invoiceTotal || 0)}
+                        </p>
+                    </button>
+                    
+                    {/* BARRA DE PROGRESSO */}
+                    <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full mt-1.5 overflow-hidden">
+                        <div 
+                            className={`h-full rounded-full ${overdueList.length > 0 ? 'bg-red-500' : 'bg-orange-500'}`} 
+                            style={{ width: '70%' }}
+                        ></div>
                     </div>
-                    {/* --- FIM DA CAIXA AZUL --- */}
+                </div>
 
+                {/* CAIXA AZUL: PRÓXIMAS */}
+                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                    <p className="text-[9px] font-bold text-blue-500 uppercase mb-0.5">Próximas Faturas</p>
+                    <p className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-none">
+                        R$ {formatBRL(nextInvoiceTotal || 0)}
+                    </p>
+                    <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full mt-1.5 overflow-hidden">
+                        <div className="bg-blue-500 h-full rounded-full" style={{ width: '40%' }}></div>
+                    </div>
+                </div>
             </div>
 
-            {/* DIREITA: FLUXO (Padding reduzido p-3 e gap apertado) */}
+            {/* DIREITA: FLUXO */}
             <div className="p-3 relative flex flex-col justify-center">
                  <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-2 flex items-center gap-1.5">
                     <TrendingUp size={12}/> Fluxo
@@ -162,7 +158,7 @@ export default function DashboardView({
                         <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
                              <ArrowUpCircle size={10} className="text-green-500"/> Entrou
                         </span>
-                        <span className="font-bold text-green-600 dark:text-green-400">R$ {monthlyIncome.toFixed(2)}</span>
+                        <span className="font-bold text-green-600 dark:text-green-400">R$ {formatBRL(monthlyIncome)}</span>
                     </div>
 
                     {/* Despesa */}
@@ -170,10 +166,10 @@ export default function DashboardView({
                         <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
                              <ArrowDownCircle size={10} className="text-red-500"/> Saiu
                         </span>
-                        <span className="font-bold text-red-600 dark:text-red-400">R$ {monthlyExpense.toFixed(2)}</span>
+                        <span className="font-bold text-red-600 dark:text-red-400">R$ {formatBRL(monthlyExpense)}</span>
                     </div>
 
-                    {/* Barra de Balanço (Ocupa as 2 colunas) */}
+                    {/* Barra de Balanço */}
                     <div className="col-span-2 mt-1">
                         <div className="w-full bg-gray-100 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden flex">
                             <div 
@@ -184,7 +180,7 @@ export default function DashboardView({
                         <div className="flex justify-between mt-0.5">
                             <span className="text-[9px] text-gray-400">Comprometimento</span>
                             <span className={`text-[9px] font-bold ${monthlyBalance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                Balanço: R$ {monthlyBalance.toFixed(2)}
+                                Balanço: R$ {formatBRL(monthlyBalance)}
                             </span>
                         </div>
                     </div>
@@ -194,10 +190,10 @@ export default function DashboardView({
       </div>
 
       {/* 2. GRÁFICOS (Mantidos, mas agora devem subir bastante) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Gap reduzido para 4 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
-        {/* Gráfico 1 */}
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 h-64 flex flex-col"> {/* Altura h-64 (256px) para economizar */}
+        {/* Gráfico 1 - Pizza */}
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 h-64 flex flex-col">
           <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm mb-2 flex items-center gap-2">
             <PieIcon size={14} className="text-blue-500"/> Distribuição
           </h3>
@@ -208,7 +204,7 @@ export default function DashboardView({
                   <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={5} dataKey="value">
                     {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />)}
                   </Pie>
-                  <RechartsTooltip formatter={(value) => `R$ ${value.toFixed(2)}`} />
+                  <RechartsTooltip formatter={(value) => `R$ ${formatBRL(value)}`} />
                   <Legend verticalAlign="bottom" height={24} iconSize={8} wrapperStyle={{fontSize: '10px'}}/>
                 </PieChart>
               </ResponsiveContainer>
@@ -221,7 +217,7 @@ export default function DashboardView({
           </div>
         </div>
 
-        {/* Gráfico 2 */}
+        {/* Gráfico 2 - Barras */}
         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 h-64 flex flex-col">
           <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm mb-2 flex items-center gap-2">
             <TrendingUp size={14} className="text-green-500"/> Evolução (6 Meses)
@@ -232,7 +228,7 @@ export default function DashboardView({
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#9ca3af'}} dy={5} />
                 <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#9ca3af'}} />
-                <RechartsTooltip formatter={(value) => `R$ ${value.toFixed(2)}`} />
+                <RechartsTooltip formatter={(value) => `R$ ${formatBRL(value)}`} />
                 <Bar dataKey="Receita" fill="#10B981" radius={[3, 3, 0, 0]} barSize={15} />
                 <Bar dataKey="Despesa" fill="#EF4444" radius={[3, 3, 0, 0]} barSize={15} />
               </BarChart>

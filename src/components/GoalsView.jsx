@@ -8,6 +8,11 @@ export default function GoalsView({
   handleCurrencyChange, onDeposit
 }) {
 
+  // Função auxiliar para formatar dinheiro (R$ 1.000,00)
+  const formatBRL = (value) => {
+    return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   // --- FUNÇÃO DE MESTRE: CALCULA QUANTO POUPAR POR MÊS ---
   const calculateMonthlySuggested = (targetAmount, currentAmount, targetDate) => {
     if (!targetDate) return null;
@@ -96,7 +101,7 @@ export default function GoalsView({
                     <p className="text-[9px] text-purple-700 dark:text-purple-300 font-bold uppercase flex items-center gap-1">
                     <Calendar size={10}/> Sugestão p/ mês
                     </p>
-                    <p className="text-xs font-bold text-purple-900 dark:text-white">R$ {mensalSugestao.toFixed(2)}</p>
+                    <p className="text-xs font-bold text-purple-900 dark:text-white">R$ {formatBRL(mensalSugestao)}</p>
                     </div>
                   ) : percent >= 100 ? (
                     <div className="mt-1 bg-green-50 p-1.5 rounded-lg border border-green-100">
@@ -109,7 +114,7 @@ export default function GoalsView({
                 <div className="space-y-1">
                   <div className="flex flex-col">
                     <span className="text-xs text-gray-500 font-medium">Acumulado</span>
-                    <span className="text-xl font-bold text-purple-700 leading-none">R$ {parseFloat(g.currentAmount || 0).toFixed(2)}</span>
+                    <span className="text-xl font-bold text-purple-700 leading-none">R$ {formatBRL(g.currentAmount || 0)}</span>
                   </div>
 
                   <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden mt-2">
@@ -118,7 +123,8 @@ export default function GoalsView({
 
                   <div className="flex justify-between text-[10px] font-bold text-gray-400">
                     <span>{percent.toFixed(0)}%</span>
-                    <span className="text-right">Alvo: R$ {g.targetAmount}</span>
+                    {/* Usamos targetClean aqui para garantir que seja número formatável */}
+                    <span className="text-right">Alvo: R$ {formatBRL(targetClean)}</span>
                   </div>
                 </div>
 
