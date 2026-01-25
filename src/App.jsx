@@ -36,6 +36,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState('login');
   const [loginForm, setLoginForm] = useState({ email: '', password: '', name: '', pin: '' });
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeFilter, setActiveFilter] = useState('Geral');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [familyName, setFamilyName] = useState('Minha Família');
   const [familyPin, setFamilyPin] = useState('');
@@ -164,10 +165,23 @@ export default function App() {
       if (data) {
         setFamilyName(data.name || 'Minha Família');
         setFamilyPin(data.pin || '0000');
+        
+        // Carrega Transações
         if (data.transactions) setTransactions(Object.values(data.transactions)); else setTransactions([]);
+        
+        // Carrega Metas e Investimentos
         if (data.goals) setGoals(Object.values(data.goals)); else setGoals([]);
         if (data.investments) setInvestments(Object.values(data.investments)); else setInvestments([]);
-        if (data.creditCards) setCreditCards(Object.values(data.creditCards)); else setCreditCards([]);        
+        
+        // --- CORREÇÃO AQUI: Carrega Cartões preservando o ID ---
+        if (data.creditCards) {
+            const cardsList = Object.entries(data.creditCards).map(([key, val]) => ({ id: key, ...val }));
+            setCreditCards(cardsList);
+        } else {
+            setCreditCards([]);
+        }
+        
+        // Categorias
         if (data.expenseCategories) setExpenseCategories(data.expenseCategories);
         if (data.incomeCategories) setIncomeCategories(data.incomeCategories);
       }
@@ -462,7 +476,7 @@ export default function App() {
       setIncomeForm({
         date: t.date,
         description: t.description,
-        amount: t.amount, // Mantém a string formatada se possível, ou usa o valor
+        amount: t.amount,
         category: t.category
       });
     } else {
@@ -472,7 +486,11 @@ export default function App() {
         amount: t.amount,
         category: t.category,
         paymentMethod: t.paymentMethod || 'Cartão de Crédito',
-        installments: t.installments || '1'
+        installments: t.installments || '1',
+        
+        // --- A CORREÇÃO ESTÁ AQUI: ---
+        // Agora o formulário sabe qual cartão estava salvo!
+        card: t.card || '' 
       });
     }
   };
@@ -1005,104 +1023,107 @@ export default function App() {
     }
   };
   
-  // --- CÁLCULOS OTIMIZADOS: CAÇADOR DE ATRASOS & SEPARAÇÃO INTELIGENTE ---
+  // --- CÁLCULOS OTIMIZADOS (CORRIGIDO) ---
   const totals = React.useMemo(() => {
-    // 1. Definições Básicas
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     const viewYear = currentDate.getFullYear();
     const viewMonth = currentDate.getMonth();
-    const today = new Date();
+
+    let invoiceTotal = 0;      // A Pagar
+    let nextInvoiceTotal = 0;  // Próximas
+    let overdueList = [];      // LISTA (Corrigido de count para array)
     
-    // --- LÓGICA DO ROBÔ DE COBRANÇA (Check-up de Atrasos) ---
-    let overdueCount = 0;
-    let foundOverdueValue = 0; // Guarda o valor da dívida mais antiga encontrada
-    
-    // Varre os últimos 6 meses procurando B.O.
-    for (let i = 6; i >= 1; i--) {
-        const checkDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        const checkMonth = checkDate.getMonth();
-        const checkYear = checkDate.getFullYear();
+    const getRefTag = (date) => {
+        return `(Ref: ${date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })})`;
+    };
 
-        // Soma fatura desse mês antigo
-        let monthInvoice = 0;
-        let hasPayment = false;
+    // 1. Loop dos Cartões
+    creditCards.forEach(card => {
+        if (!card.closingDay) return;
 
-        transactions.forEach(t => {
-            const tDate = new Date(t.date + 'T12:00:00');
-            const [y, m] = t.date.split('-');
-            
-            // Verifica se pertence ao mês analisado (Lógica Simplificada de Competência para Atraso)
-            if ((parseInt(m) - 1) === checkMonth && parseInt(y) === checkYear) {
-                // Soma Despesas de Cartão
-                if (t.type === 'despesa' && t.paymentMethod === 'Crédito' && t.category !== 'Aporte') {
-                    monthInvoice += Number(t.value);
+        const closingDay = parseInt(card.closingDay);
+        const dueDay = parseInt(card.dueDay);
+
+        // A. A PAGAR (Passado)
+        for (let i = 0; i < 12; i++) {
+            const targetDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const targetMonth = targetDate.getMonth();
+            const targetYear = targetDate.getFullYear();
+
+            const cycleCloseDate = new Date(targetYear, targetMonth, closingDay);
+            const cycleStartDate = new Date(targetYear, targetMonth - 1, closingDay);
+            const cycleDueDate = new Date(targetYear, targetMonth, dueDay);
+
+            if (today >= cycleCloseDate) {
+                const cycleExpenses = transactions.reduce((acc, t) => {
+                    if (t.card === card.id && t.type === 'despesa' && t.category !== 'Aporte' && t.category !== 'Pagamento de Cartão') {
+                        const tDate = new Date(t.date + 'T12:00:00');
+                        if (tDate >= cycleStartDate && tDate < cycleCloseDate) {
+                            return acc + Number(t.value);
+                        }
+                    }
+                    return acc;
+                }, 0);
+
+                if (cycleExpenses > 0) {
+                    const refTag = getRefTag(targetDate);
+                    const isPaid = transactions.some(t => {
+                        const isPayment = t.category === 'Pagamento de Cartão' || (t.description && t.description.toLowerCase().includes('pagamento fatura'));
+                        const isSameCard = t.description && t.description.toLowerCase().includes(card.name.toLowerCase());
+                        const hasRef = t.description && t.description.includes(refTag);
+                        return isPayment && isSameCard && hasRef;
+                    });
+
+                    if (!isPaid) {
+                        invoiceTotal += cycleExpenses;
+                        if (today > cycleDueDate) {
+                            overdueList.push({
+                                id: card.id,
+                                name: card.name,
+                                amount: cycleExpenses,
+                                dueDate: cycleDueDate
+                            });
+                        }
+                    }
                 }
-                // Verifica se houve Pagamento da Fatura
-                if (t.type === 'despesa' && (t.description.toLowerCase().includes('pagamento') || t.category === 'Pagamento de Cartão')) {
-                    hasPayment = true;
-                }
-            }
-        });
-
-        // Se tem dívida (>0), já venceu (mês passado) e NÃO tem pagamento...
-        if (monthInvoice > 0 && !hasPayment) {
-            overdueCount++; // +1 Fatura atrasada
-            if (foundOverdueValue === 0) {
-                foundOverdueValue = monthInvoice; // Pega a mais antiga como prioridade
             }
         }
-    }
 
-    // --- CÁLCULO DA TELA ATUAL (MÊS SELECIONADO) ---
-    let invoiceTotal = 0; // "A Pagar"
-    let nextInvoiceTotal = 0; // "Próximas"
-
-    transactions.forEach(t => {
-      // Filtra despesas de cartão
-      if (t.type === 'despesa' && t.paymentMethod === 'Crédito' && t.category !== 'Aporte') {
-        const card = creditCards.find(c => c.id === t.card);
-        
-        // Se o cartão tem configuração de datas...
-        if (card && card.closingDay) {
-            const closingDay = parseInt(card.closingDay);
-            const tDate = new Date(t.date + 'T12:00:00');
-
-            // Intervalos de Fatura baseados no MÊS QUE ESTAMOS OLHANDO NA TELA
-            const currentInvoiceStart = new Date(viewYear, viewMonth - 1, closingDay);
-            const currentInvoiceEnd = new Date(viewYear, viewMonth, closingDay);
-            const nextInvoiceEnd = new Date(viewYear, viewMonth + 1, closingDay);
-
-            // DISTRIBUIÇÃO NAS CAIXINHAS
-            if (tDate >= currentInvoiceStart && tDate < currentInvoiceEnd) {
-                // Caiu na fatura do mês visualizado
-                invoiceTotal += Number(t.value);
-            } else if (tDate >= currentInvoiceEnd && tDate < nextInvoiceEnd) {
-                // Caiu na próxima
-                nextInvoiceTotal += Number(t.value);
-            }
+        // B. PRÓXIMAS (Futuro)
+        const currentMonthCloseDate = new Date(today.getFullYear(), today.getMonth(), closingDay);
+        let boundaryDate;
+        if (today >= currentMonthCloseDate) {
+            boundaryDate = currentMonthCloseDate;
         } else {
-            // Fallback (Sem config de cartão)
-            const [y, m] = t.date.split('-');
-            if ((parseInt(m) - 1) === viewMonth && parseInt(y) === viewYear) {
-                invoiceTotal += Number(t.value);
-            }
+            boundaryDate = new Date(today.getFullYear(), today.getMonth() - 1, closingDay);
         }
-      }
+
+        const futureSum = transactions.reduce((acc, t) => {
+             if (t.card === card.id && t.type === 'despesa' && t.category !== 'Aporte' && t.category !== 'Pagamento de Cartão') {
+                const tDate = new Date(t.date + 'T12:00:00');
+                if (tDate >= boundaryDate) {
+                    return acc + Number(t.value);
+                }
+             }
+             return acc;
+        }, 0);
+        
+        nextInvoiceTotal += futureSum;
     });
 
-    // --- DECISÃO FINAL DO CAMPO "A PAGAR" ---
-    // Regra 1: Se tem atraso, o atraso ganha prioridade total (Trava de Segurança)
-    if (overdueCount > 0) {
-        invoiceTotal = foundOverdueValue;
-    } 
-    // Regra 2: Se não tem atraso, verifica se a fatura atual JÁ FECHOU
-    else {
-        // Se estamos olhando o mês atual E hoje ainda é antes do fechamento, 
-        // então tecnicamente a fatura ainda não é "A Pagar" (ainda é previsão).
-        // Mas manteremos mostrando para o usuário acompanhar a evolução.
-        // (Se quiser esconder fatura aberta, podemos colocar uma condição aqui).
-    }
+    // 2. Genérico (Sem cartão)
+    transactions.forEach(t => {
+        if (t.type === 'despesa' && t.paymentMethod === 'Crédito' && !t.card && t.category !== 'Aporte') {
+             const [y, m] = t.date.split('-');
+             if ((parseInt(m) - 1) === viewMonth && parseInt(y) === viewYear) {
+                 invoiceTotal += Number(t.value);
+             }
+        }
+    });
 
-    // --- RESTO DOS CÁLCULOS (Saldo, Gráficos, etc - Mantidos Iguais) ---
+    // 3. Totais Gerais
     const currentMonthTrans = transactions.filter(t => {
       if (!t.date) return false;
       const [y, m] = t.date.split('-');
@@ -1114,7 +1135,7 @@ export default function App() {
       .reduce((acc, c) => acc + Number(c.value), 0);
 
     const exp = currentMonthTrans
-      .filter(t => t.type === 'despesa' && t.category !== 'Aporte' && t.paymentMethod !== 'Crédito')
+      .filter(t => t.type === 'despesa' && t.category !== 'Aporte' && t.category !== 'Pagamento de Cartão' && t.paymentMethod !== 'Crédito')
       .reduce((acc, c) => acc + Number(c.value), 0);
 
     const todayStr = new Date().toISOString().split('T')[0];
@@ -1122,7 +1143,8 @@ export default function App() {
       .filter(t => t.date <= todayStr)
       .reduce((acc, c) => {
         if (c.type === 'receita') return acc + Number(c.value);
-        if (c.type === 'despesa' && c.paymentMethod !== 'Crédito') return acc - Number(c.value);
+        if (c.type === 'despesa' && c.category !== 'Pagamento de Cartão' && c.paymentMethod !== 'Crédito') return acc - Number(c.value);
+        if (c.category === 'Pagamento de Cartão') return acc - Number(c.value);
         return acc;
       }, 0);
 
@@ -1145,7 +1167,7 @@ export default function App() {
         return (parseInt(m) - 1) === d.getMonth() && parseInt(y) === d.getFullYear();
       });
       const mInc = monthTrans.filter(t => t.type === 'receita' && t.category !== 'Resgate').reduce((acc, c) => acc + Number(c.value), 0);
-      const mExp = monthTrans.filter(t => t.type === 'despesa' && t.category !== 'Aporte' && t.paymentMethod !== 'Crédito').reduce((acc, c) => acc + Number(c.value), 0);
+      const mExp = monthTrans.filter(t => t.type === 'despesa' && t.category !== 'Aporte' && t.category !== 'Pagamento de Cartão' && t.paymentMethod !== 'Crédito').reduce((acc, c) => acc + Number(c.value), 0);
       return { 
         name: d.toLocaleDateString('pt-BR', { month: 'short' }) + '/' + d.getFullYear(), 
         Receita: mInc, 
@@ -1165,7 +1187,7 @@ export default function App() {
       barData: bData,
       invoiceTotal,      
       nextInvoiceTotal,
-      overdueCount // <--- Exportando o contador para a Dashboard usar
+      overdueList
     };
   }, [transactions, goals, investments, currentDate, creditCards]);
 
@@ -1298,8 +1320,7 @@ export default function App() {
         setIsOpen={setIsSidebarOpen} // <--- NOVO
       />
 
-      <main className="flex-1 flex flex-col h-screen ov
-      erflow-hidden relative w-full">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden relative w-full">
         <Header
           activeTab={activeTab}
           familyName={familyName}
@@ -1358,7 +1379,12 @@ export default function App() {
               barData={barData} 
               COLORS={COLORS}
               invoiceTotal={invoiceTotal}          // <--- NOVO
-              nextInvoiceTotal={nextInvoiceTotal}  // <--- NOVO
+              nextInvoiceTotal={nextInvoiceTotal}
+              overdueList={totals.overdueList}
+              onNavigateToCard={(cardId) => {
+                  setActiveFilter(cardId); // Seleciona o cartão
+                  setActiveTab('transactions'); // Leva para a tela de transações
+              }}  // <--- NOVO
             />
           )}
 
@@ -1388,6 +1414,8 @@ export default function App() {
               currentUser={currentUser}
               handleCurrencyChange={handleCurrencyChange}
               setAnticipateModal={setAnticipateModal}
+              activeFilter={activeFilter}       // Recebe o estado do App
+              setActiveFilter={setActiveFilter} // Recebe a função para mudar
             />
           )}
 

@@ -8,8 +8,12 @@ export default function DashboardView({
   monthlyIncome, monthlyExpense, monthlyBalance, 
   pieData, barData, COLORS,
   invoiceTotal, nextInvoiceTotal,
-  overdueCount = 0 // <--- NOVO: Recebe a quantidade de faturas atrasadas (padrão 0)
+  overdueList = [], // <--- Recebe a lista (padrão vazio)
+  onNavigateToCard, // <--- Recebe a função de navegação // <--- NOVO: Recebe a quantidade de faturas atrasadas (padrão 0)
 }) {
+
+  const [showOverdueMenu, setShowOverdueMenu] = React.useState(false);
+
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-6"> {/* Reduzi space-y-6 para 4 e pb-10 para 6 */}
       
@@ -74,43 +78,76 @@ export default function DashboardView({
                     <CreditCard size={12}/> Compromissos de Cartão
                 </h3>
                 
-                <div className="flex gap-4 items-center">
-                    {/* COLUNA 1: A PAGAR (COM ALERTA DE ATRASO) */}
+                {/* COLUNA 1: A PAGAR (COM AÇÃO DE CLIQUE) */}
                     <div className="flex-1 relative">
-                        {/* Se tiver atraso, mostra bolinha piscando */}
-                        {overdueCount > 0 && (
+                        {/* 1. BOLINHA DE ALERTA */}
+                        {overdueList.length > 0 && (
                              <span className="absolute -top-1 right-0 flex h-2 w-2">
                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                              </span>
                         )}
 
-                        <p className={`text-[9px] font-bold uppercase mb-0.5 ${overdueCount > 0 ? 'text-red-500 animate-pulse' : 'text-orange-500'}`}>
-                            {overdueCount > 0 ? `⚠️ Atrasado (${overdueCount})` : 'A Pagar'}
-                        </p>
+                        {/* 2. MENU FLUTUANTE (SELETOR) - Só aparece se tiver múltiplos e clicar */}
+                        {showOverdueMenu && overdueList.length > 1 && (
+                            <div className="absolute top-8 left-0 z-50 bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-red-100 dark:border-red-900 w-48 p-1 animate-fadeIn">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase px-2 py-1 border-b border-gray-100 dark:border-gray-700">Escolha a fatura:</p>
+                                {overdueList.map(item => (
+                                    <button 
+                                        key={item.id}
+                                        onClick={() => onNavigateToCard(item.id)}
+                                        className="w-full text-left px-2 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/20 rounded flex justify-between items-center"
+                                    >
+                                        <span>{item.name}</span>
+                                        <span className="text-red-500">R$ {item.amount.toFixed(0)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* 3. TÍTULO CLICÁVEL */}
+                        <button 
+                            onClick={() => {
+                                if (overdueList.length === 1) {
+                                    // Se só tem 1, vai direto!
+                                    onNavigateToCard(overdueList[0].id);
+                                } else if (overdueList.length > 1) {
+                                    // Se tem vários, abre o menu
+                                    setShowOverdueMenu(!showOverdueMenu);
+                                }
+                            }}
+                            className={`text-left w-full focus:outline-none ${overdueList.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+                        >
+                            <p className={`text-[9px] font-bold uppercase mb-0.5 transition-colors ${overdueList.length > 0 ? 'text-red-500 animate-pulse hover:text-red-600' : 'text-orange-500'}`}>
+                                {overdueList.length > 0 ? `⚠️ Atrasado (${overdueList.length})` : 'A Pagar'}
+                            </p>
+                            
+                            <p className={`text-lg font-bold leading-none ${overdueList.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100'}`}>
+                                R$ {(invoiceTotal || 0).toFixed(2)}
+                            </p>
+                        </button>
                         
-                        <p className={`text-lg font-bold leading-none ${overdueCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100'}`}>
-                            R$ {(invoiceTotal || 0).toFixed(2)}
-                        </p>
-                        
+                        {/* 4. BARRA DE PROGRESSO */}
                         <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full mt-1.5 overflow-hidden">
                             <div 
-                                className={`h-full rounded-full ${overdueCount > 0 ? 'bg-red-500' : 'bg-orange-500'}`} 
+                                className={`h-full rounded-full ${overdueList.length > 0 ? 'bg-red-500' : 'bg-orange-500'}`} 
                                 style={{ width: '70%' }}
                             ></div>
                         </div>
                     </div>
-                    {/* Divisor */}
-                    <div className="w-px h-8 bg-gray-100 dark:bg-gray-700"></div>
-                    {/* Próxima */}
-                    <div className="flex-1">
+
+                    {/* --- AQUI ENTRA A CAIXA AZUL QUE FALTOU --- */}
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                         <p className="text-[9px] font-bold text-blue-500 uppercase mb-0.5">Próximas Faturas</p>
-                        <p className="text-lg font-bold text-gray-400 dark:text-gray-500 leading-none">R$ {(nextInvoiceTotal || 0).toFixed(2)}</p>
-                         <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full mt-1.5 overflow-hidden">
-                            <div className="bg-blue-300 h-full rounded-full" style={{ width: '30%' }}></div>
+                        <p className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-none">
+                            R$ {(nextInvoiceTotal || 0).toFixed(2)}
+                        </p>
+                        <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full mt-1.5 overflow-hidden">
+                            <div className="bg-blue-500 h-full rounded-full" style={{ width: '40%' }}></div>
                         </div>
                     </div>
-                </div>
+                    {/* --- FIM DA CAIXA AZUL --- */}
+
             </div>
 
             {/* DIREITA: FLUXO (Padding reduzido p-3 e gap apertado) */}

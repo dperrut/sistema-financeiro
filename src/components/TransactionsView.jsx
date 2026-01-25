@@ -14,12 +14,12 @@ export default function TransactionsView({
   incomeCategories, expenseCategories,
   transactions, currentDate, formatMonthYear, currentUser,
   handleCurrencyChange,
-  setAnticipateModal
+  setAnticipateModal,
+  activeFilter, setActiveFilter,
 }) {
 
   // 1. Estado para armazenar os cartões reais
   const [creditCards, setCreditCards] = useState([]);
-  const [activeFilter, setActiveFilter] = useState('Geral'); // Agora armazena o ID do cartão ou 'Geral'
   // ESTADO PARA CONTROLE DE ABAS NO MOBILE
   const [mobileTab, setMobileTab] = useState('list'); // 'form' ou 'list'
   
