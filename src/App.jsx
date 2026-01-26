@@ -241,8 +241,14 @@ export default function App() {
         // 2. Prepara a criação da nova família no Realtime Database
         const familyRef = push(ref(db, 'families'));
         const familyId = familyRef.key;
-        const firstName = loginForm.name.split(' ')[0];
-        const nomeFamilia = `Família ${firstName}`;
+        // Lógica para pegar o Sobrenome (última palavra)
+        const nameParts = loginForm.name.trim().split(' ');
+        // Se tiver sobrenome, pega o último. Se só tiver um nome, usa ele mesmo.
+        const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+        // Coloca a primeira letra maiúscula para ficar bonito (ex: figueiredo -> Figueiredo)
+        const formattedLastName = lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase();
+        
+        const nomeFamilia = `Família ${formattedLastName}`;
 
         // 3. Salva os dados da Família
         await set(familyRef, {
@@ -872,8 +878,14 @@ export default function App() {
   const handleExportData = () => {
     try {
       const data = {
-        familyName, familyPin, transactions, goals,
-        investments, incomeCategories, expenseCategories
+        familyName, 
+        familyPin, 
+        transactions, 
+        goals,
+        investments, 
+        creditCards,
+        incomeCategories, 
+        expenseCategories
       };
 
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -906,6 +918,7 @@ export default function App() {
   };
 
   // --- FUNÇÃO: IMPORTAR BACKUP (JSON) PARA O FIREBASE (FASE 3) ---
+  // --- FUNÇÃO: IMPORTAR BACKUP (CORRIGIDA) ---
   const importDataToFirebase = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -915,9 +928,17 @@ export default function App() {
       try {
         const data = JSON.parse(e.target.result);
 
-        // Validação: o arquivo tem estrutura de backup?
-        if (!data.transactions && !data.goals && !data.investments) {
-          throw new Error('Arquivo de backup inválido.');
+        // 1. VALIDAÇÃO MAIS INTELIGENTE
+        // Aceita o arquivo se tiver PELO MENOS UM tipo de dado relevante
+        const isValidBackup = 
+            data.transactions || 
+            data.goals || 
+            data.investments || 
+            data.creditCards || 
+            (data.incomeCategories && data.incomeCategories.length > 0);
+
+        if (!isValidBackup) {
+          throw new Error('O arquivo não parece ser um backup válido do FinDoméstica.');
         }
 
         if (window.confirm(`Deseja restaurar o backup da "${data.familyName || 'Família'}"? Isso substituirá seus dados atuais.`)) {
@@ -941,7 +962,20 @@ export default function App() {
             updates['investments'] = iObj;
           }
 
-          // Categorias
+          // --- IMPORTAÇÃO DOS CARTÕES (ADICIONADO) ---
+          if (data.creditCards) {
+             const cObj = {};
+             // Verifica se é array antes de rodar o forEach
+             if (Array.isArray(data.creditCards)) {
+                 data.creditCards.forEach(c => { cObj[c.id] = c; });
+             } else {
+                 // Caso venha como objeto do backup antigo
+                 Object.values(data.creditCards).forEach(c => { cObj[c.id] = c; });
+             }
+             updates['creditCards'] = cObj;
+          }
+
+          // Categorias e Configurações
           if (data.incomeCategories) updates['incomeCategories'] = data.incomeCategories;
           if (data.expenseCategories) updates['expenseCategories'] = data.expenseCategories;
           if (data.familyName) updates['name'] = data.familyName;
@@ -951,10 +985,17 @@ export default function App() {
           await update(ref(db, `families/${fid}`), updates);
 
           showToast("Dados restaurados com sucesso!", "success");
+          
+          // Opcional: Recarregar a página para garantir que tudo atualize visualmente
+          setTimeout(() => window.location.reload(), 1500);
         }
       } catch (err) {
         console.error(err);
-        showToast("Falha ao importar: arquivo inválido.", "error");
+        showToast("Falha ao importar: arquivo inválido ou corrompido.", "error");
+      } finally {
+        // 2. CORREÇÃO DO BOTÃO TRAVADO
+        // Limpa o input para permitir selecionar o mesmo arquivo novamente se der erro
+        event.target.value = '';
       }
     };
     reader.readAsText(file);
