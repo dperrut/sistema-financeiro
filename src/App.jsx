@@ -27,6 +27,12 @@ import {
   ref, set, push, remove, onValue, update, get
 } from 'firebase/database';
 
+// Função auxiliar para formatar e-mail (troca ponto por underline)
+// Ex: joao.silva@gmail.com -> joao_silva@gmail_com
+const formatEmailKey = (email) => {
+  return email.replace(/\./g, '_');
+};
+
 export default function App() {
   // ==================================================================================
   // 1. ESTADOS GERAIS
@@ -211,6 +217,23 @@ export default function App() {
         // Lógica de Login
         await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
       } else if (authMode === 'register') {
+        // --- NOVO: BLOCO DE SEGURANÇA (LISTA VIP) ---
+        
+        // 1. Formata o e-mail para buscar no banco
+        const emailKey = formatEmailKey(loginForm.email);
+        
+        // 2. Vai no banco verificar se está na lista
+        const allowRef = ref(db, `allowed_users/${emailKey}`);
+        const snapshot = await get(allowRef);
+
+        // 3. SE NÃO EXISTIR ou NÃO FOR TRUE -> BARRA A ENTRADA
+        if (!snapshot.exists() || snapshot.val() !== true) {
+            alert("⛔ Acesso Negado!\n\nEste e-mail não está na lista de convidados para o teste beta.\nPeça para o administrador liberar seu acesso.");
+            return; // O código para aqui e não cria a conta
+        }
+        // ----------------------------------------------
+
+        // SE PASSOU DAQUI, CRIA A CONTA NORMALMENTE (CÓDIGO ANTIGO)
         // 1. Cria o usuário no Firebase Auth
         const userCred = await createUserWithEmailAndPassword(auth, loginForm.email, loginForm.password);
         const uid = userCred.user.uid;
@@ -228,8 +251,8 @@ export default function App() {
           pin: loginForm.pin,
           createdBy: uid,
           members: { [uid]: loginForm.name },
-          expenseCategories, // Assume-se que estas variáveis existam no escopo
-          incomeCategories    // Assume-se que estas variáveis existam no escopo
+          expenseCategories, 
+          incomeCategories    
         });
 
         // 4. Salva os dados do Usuário (vinculando ao familyId)
@@ -237,7 +260,7 @@ export default function App() {
           name: loginForm.name,
           email: loginForm.email,
           familyId: familyId,
-          role: 'admin' // Definindo o criador como admin por padrão
+          role: 'admin' 
         });
 
         // 5. Atualiza o perfil do usuário no Auth (displayName)
