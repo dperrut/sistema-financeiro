@@ -1191,11 +1191,30 @@ export default function App() {
 
                 if (cycleExpenses > 0) {
                     const refTag = getRefTag(targetDate);
+                    // --- CORREÇÃO DEFINITIVA: VERIFICAÇÃO INTELIGENTE ---
                     const isPaid = transactions.some(t => {
-                        const isPayment = t.category === 'Pagamento de Cartão' || (t.description && t.description.toLowerCase().includes('pagamento fatura'));
-                        const isSameCard = t.description && t.description.toLowerCase().includes(card.name.toLowerCase());
-                        const hasRef = t.description && t.description.includes(refTag);
-                        return isPayment && isSameCard && hasRef;
+                        if (!t.description) return false;
+                        
+                        // Função de limpeza (Remove acentos, espaços extras e põe minúsculo)
+                        // Ex: "Fatura Março" vira "fatura marco"
+                        const clean = (str) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim();
+
+                        const descClean = clean(t.description);
+                        const cardNameClean = clean(card.name);
+                        const refClean = clean(refTag);
+
+                        // 1. É tipo pagamento?
+                        const isPaymentType = t.category === 'Pagamento de Cartão' || descClean.includes('pagamento fatura');
+
+                        // 2. É deste cartão? (ID bate OU nome do cartão está na descrição)
+                        const isSameCard = (t.card === card.id) || descClean.includes(cardNameClean);
+
+                        // 3. Verifica se pagou a REFERÊNCIA (Mês) OU se pagou o VALOR EXATO da fatura
+                        // Isso garante que se você esquecer de escrever "Ref: Janeiro", mas pagar o valor certo, ele entende.
+                        const hasRef = descClean.includes(refClean);
+                        const isExactValue = Math.abs(Number(t.value) - cycleExpenses) < 0.1; // Margem de 10 centavos
+
+                        return isPaymentType && isSameCard && (hasRef || isExactValue);
                     });
 
                     if (!isPaid) {
