@@ -2,7 +2,8 @@
   "projects": {
     "default": "gerenciador-financeiro-97d8f",
     "testefindomestica": "sistemafindomestica",
-    "novofindomestica": "sistemafindomestica"
+    "novofindomestica": "sistemafindomestica",
+    "prod": "sistemafindomestica"
   },
   "targets": {},
   "etags": {}

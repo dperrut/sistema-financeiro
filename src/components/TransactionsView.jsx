@@ -161,97 +161,89 @@ export default function TransactionsView({
   const invoiceInfo = activeCardData ? getInvoiceStatus(activeCardData, invoiceTotal) : null;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-10">
+    // MUDANÇA: h-[calc(100vh-5rem)] força a altura a caber na tela (descontando o Header do App)
+    <div className="max-w-7xl mx-auto h-[60vh] flex flex-col gap-3 pb-2">
       
-      {/* 1. HEADER UNIFICADO */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors duration-300">
+      {/* 1. HEADER UNIFICADO (LINHA ÚNICA) */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors duration-300 shrink-0">
         
-        {/* Totais Globais */}
-        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-gray-100 dark:divide-gray-700 bg-gray-50/30 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
-            {/* Disponível */}
+        {/* Grid de 7 colunas em telas grandes */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 divide-x divide-y lg:divide-y-0 divide-gray-100 dark:divide-gray-700 bg-gray-50/30 dark:bg-gray-800">
+            {/* 1. Disponível */}
             <div className="p-2 flex flex-col items-center justify-center group hover:bg-green-50/30 dark:hover:bg-green-900/10 transition-colors">
                 <div className="flex items-center gap-1.5 opacity-80 mb-0.5">
                     <Wallet size={12} className="text-green-500" />
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Disponível</span>
                 </div>
-                <h2 className={`text-lg font-extrabold leading-none ${accumulatedBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                <h2 className={`text-sm lg:text-base font-extrabold leading-none ${accumulatedBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
                     R$ {formatBRL(accumulatedBalance)}
                 </h2>
             </div>
             
-            {/* Patrimônio */}
+            {/* 2. Patrimônio */}
             <div className="p-2 flex flex-col items-center justify-center group hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                 <div className="flex items-center gap-1.5 opacity-70 mb-0.5">
                     <DollarSign size={12} className="text-blue-500" />
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Patrimônio</span>
                 </div>
-                <h2 className="text-lg font-extrabold text-gray-700 dark:text-gray-200 leading-none">
+                <h2 className="text-sm lg:text-base font-extrabold text-gray-700 dark:text-gray-200 leading-none">
                     R$ {formatBRL(totalPatrimony)}
                 </h2>
             </div>
 
-            {/* Metas */}
+            {/* 3. Metas */}
             <div className="p-2 flex flex-col items-center justify-center group hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                  <div className="flex items-center gap-1.5 opacity-70 mb-0.5">
                     <Target size={12} className="text-purple-500" />
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Metas</span>
                 </div>
-                <h2 className="text-lg font-extrabold text-purple-600 dark:text-purple-400 leading-none">
+                <h2 className="text-sm lg:text-base font-extrabold text-purple-600 dark:text-purple-400 leading-none">
                     R$ {formatBRL(totalGoals)}
                 </h2>
             </div>
 
-            {/* Investido */}
+            {/* 4. Investido */}
             <div className="p-2 flex flex-col items-center justify-center group hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                  <div className="flex items-center gap-1.5 opacity-70 mb-0.5">
                     <PieChart size={12} className="text-blue-500" />
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Investido</span>
                 </div>
-                <h2 className="text-lg font-extrabold text-blue-600 dark:text-blue-400 leading-none">
+                <h2 className="text-sm lg:text-base font-extrabold text-blue-600 dark:text-blue-400 leading-none">
                     R$ {formatBRL(totalInvestments)}
                 </h2>
             </div>
-        </div>
 
-        {/* Resumo do Mês */}
-        <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-700">
-            {/* Receita */}
-            <div className="p-3 flex items-center justify-between bg-green-50/20 dark:bg-green-900/5">
-                 <div className="flex items-center gap-2">
-                    <div className="p-1 rounded bg-green-100 dark:bg-green-800 text-green-600 dark:text-green-300">
-                        <ArrowUpCircle size={14}/>
-                    </div>
-                    <div>
-                        <p className="text-[9px] font-bold text-gray-400 uppercase">Receita</p>
-                        <p className="text-sm font-bold text-green-600 dark:text-green-400">R$ {formatBRL(monthlyIncome)}</p>
-                    </div>
-                 </div>
+            {/* 5. Receita (Movido para cima) */}
+            <div className="p-2 flex flex-col items-center justify-center bg-green-50/20 dark:bg-green-900/5">
+                 <div className="flex items-center gap-1.5 opacity-80 mb-0.5">
+                    <ArrowUpCircle size={12} className="text-green-500" />
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Receita</span>
+                </div>
+                <h2 className="text-sm lg:text-base font-extrabold text-green-600 dark:text-green-400 leading-none">
+                    R$ {formatBRL(monthlyIncome)}
+                </h2>
             </div>
-            {/* Despesa */}
-            <div className="p-3 flex items-center justify-between bg-red-50/20 dark:bg-red-900/5">
-                 <div className="flex items-center gap-2">
-                    <div className="p-1 rounded bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-300">
-                        <ArrowDownCircle size={14}/>
-                    </div>
-                    <div>
-                        <p className="text-[9px] font-bold text-gray-400 uppercase">Despesa</p>
-                        <p className="text-sm font-bold text-red-600 dark:text-red-400">R$ {formatBRL(monthlyExpense)}</p>
-                    </div>
-                 </div>
+
+            {/* 6. Despesa (Movido para cima) */}
+            <div className="p-2 flex flex-col items-center justify-center bg-red-50/20 dark:bg-red-900/5">
+                 <div className="flex items-center gap-1.5 opacity-80 mb-0.5">
+                    <ArrowDownCircle size={12} className="text-red-500" />
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Despesa</span>
+                </div>
+                <h2 className="text-sm lg:text-base font-extrabold text-red-600 dark:text-red-400 leading-none">
+                    R$ {formatBRL(monthlyExpense)}
+                </h2>
             </div>
-            {/* Balanço */}
-            <div className="p-3 flex items-center justify-between bg-gray-50/30 dark:bg-gray-800">
-                 <div className="flex items-center gap-2">
-                    <div className={`p-1 rounded ${monthlyBalance >= 0 ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'} dark:bg-gray-700 dark:text-gray-300`}>
-                        <TrendingUp size={14}/>
-                    </div>
-                    <div>
-                        <p className="text-[9px] font-bold text-gray-400 uppercase">Balanço</p>
-                        <p className={`text-sm font-bold ${monthlyBalance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-500'}`}>
-                            R$ {formatBRL(monthlyBalance)}
-                        </p>
-                    </div>
-                 </div>
+
+            {/* 7. Balanço (Movido para cima) */}
+            <div className="p-2 flex flex-col items-center justify-center bg-gray-50/30 dark:bg-gray-800">
+                 <div className="flex items-center gap-1.5 opacity-80 mb-0.5">
+                    <TrendingUp size={12} className={monthlyBalance >= 0 ? 'text-blue-500' : 'text-red-500'} />
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Balanço</span>
+                </div>
+                <h2 className={`text-sm lg:text-base font-extrabold leading-none ${monthlyBalance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-500'}`}>
+                    R$ {formatBRL(monthlyBalance)}
+                </h2>
             </div>
         </div>
       </div>
@@ -273,164 +265,172 @@ export default function TransactionsView({
       </div>
 
       {/* --- GRID PRINCIPAL --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start min-h-0">
         
-        {/* 2. COLUNA ESQUERDA: FORMULÁRIOS (Sticky) */}
-        <div className={`lg:col-span-4 space-y-4 lg:sticky lg:top-4 ${mobileTab === 'list' ? 'hidden lg:block' : 'block'}`}>
+        {/* 2. COLUNA ESQUERDA: FORMULÁRIOS (Ultra Compactos) */}
+        <div className={`lg:col-span-4 space-y-2 ${mobileTab === 'list' ? 'hidden lg:block' : 'block'}`}>
             
-            {/* Formulário Receita */}
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-green-500 transition-colors">
-                <h3 className="text-xs font-extrabold text-green-600 dark:text-green-400 uppercase mb-3 flex items-center gap-1.5">
+            {/* Formulário Receita (Botão Corrigido) */}
+            <div className="bg-white dark:bg-gray-800 p-2.5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-green-500 transition-colors">
+                <h3 className="text-[10px] font-extrabold text-green-600 dark:text-green-400 uppercase mb-1.5 flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div> Nova Receita
                 </h3>
-                <div className="space-y-2">
-                    <input 
-                        className="w-full p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 transition-all" 
-                        placeholder="Descrição" 
-                        value={incomeForm.description} 
-                        onChange={e=>setIncomeForm({...incomeForm, description:e.target.value})}
-                    />
-                    <div className="flex gap-2">
+                <div className="space-y-1.5">
+                    {/* Linha 1: Descrição (70%) + Valor (30%) */}
+                    <div className="flex gap-1.5">
                         <input 
-                            className="flex-1 w-full p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 transition-all font-bold" 
+                            className="flex-[2] w-full p-1.5 text-[10px] border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-green-500 transition-all" 
+                            placeholder="Descrição" 
+                            value={incomeForm.description} 
+                            onChange={e=>setIncomeForm({...incomeForm, description:e.target.value})}
+                        />
+                        <input 
+                            className="flex-1 w-full p-1.5 text-[10px] border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-green-500 font-bold transition-all" 
                             type="text" 
                             placeholder="R$ 0,00" 
                             value={incomeForm.amount} 
                             onChange={(e) => handleCurrencyChange(e, setIncomeForm, incomeForm, 'amount')} 
                         />
+                    </div>
+
+                    {/* Linha 2: Data + Categoria */}
+                    <div className="flex gap-1.5">
                          <input 
-                            className="w-28 p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 transition-all" 
+                            className="w-24 p-1.5 text-[10px] border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-green-500 transition-all" 
                             type="date" 
                             value={incomeForm.date} 
                             onChange={e=>setIncomeForm({...incomeForm, date:e.target.value})}
                         />
+                        <select 
+                            className="flex-1 p-1.5 text-[10px] border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-green-500 transition-all" 
+                            value={incomeForm.category} 
+                            onChange={e=>setIncomeForm({...incomeForm, category:e.target.value})}
+                        >
+                            {incomeCategories.map(c=><option key={c} value={c}>{c}</option>)}
+                        </select>
                     </div>
-                    <select 
-                        className="w-full p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 transition-all" 
-                        value={incomeForm.category} 
-                        onChange={e=>setIncomeForm({...incomeForm, category:e.target.value})}
-                    >
-                        {incomeCategories.map(c=><option key={c} value={c}>{c}</option>)}
-                    </select>
-                    
+
+                    {/* Linha 3: Botão Grande (Igual ao de Despesa) */}
                     <button 
                         onClick={()=>addTransaction('income')} 
-                        className="w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg text-xs font-bold transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1 mt-1"
+                        className="w-full bg-green-600 hover:bg-green-700 text-white p-1.5 rounded-lg text-[10px] font-bold transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1 mt-1"
                     >
-                        {editingId ? <><Edit size={12}/> Salvar</> : <><DollarSign size={12}/> Adicionar</>}
+                        {editingId ? <><Edit size={10}/> Salvar</> : <><DollarSign size={10}/> Adicionar</>}
                     </button>
                 </div>
             </div>
 
-        {/* FORMULÁRIO DE DESPESA */}
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-red-500 transition-colors">
-            <h3 className="text-xs font-extrabold text-red-600 dark:text-red-400 uppercase mb-3 flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Nova Despesa
-            </h3>
-            
-            <div className="space-y-2">
-                <input 
-                    className="w-full p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-all" 
-                    placeholder="Descrição" 
-                    value={expenseForm.description} 
-                    onChange={e=>setExpenseForm({...expenseForm, description:e.target.value})}
-                />
+            {/* FORMULÁRIO DE DESPESA (Ultra Compacto) */}
+            <div className="bg-white dark:bg-gray-800 p-2.5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-red-500 transition-colors">
+                <h3 className="text-[10px] font-extrabold text-red-600 dark:text-red-400 uppercase mb-1.5 flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Nova Despesa
+                </h3>
                 
-                <div className="flex gap-2">
-                    <input 
-                        className="flex-1 w-full p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-all font-bold" 
-                        type="text" 
-                        placeholder="R$ 0,00" 
-                        value={expenseForm.amount} 
-                        onChange={(e) => handleCurrencyChange(e, setExpenseForm, expenseForm, 'amount')} 
-                    />
-                     <input 
-                        className="w-28 p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-all" 
-                        type="date" 
-                        value={expenseForm.date} 
-                        onChange={e=>setExpenseForm({...expenseForm, date:e.target.value})}
-                    />
-                </div>
+                <div className="space-y-1.5">
+                    {/* Linha 1: Descrição (70%) + Valor (30%) */}
+                    <div className="flex gap-1.5">
+                        <input 
+                            className="flex-[2] w-full p-1.5 text-[10px] border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-red-500 transition-all" 
+                            placeholder="Descrição" 
+                            value={expenseForm.description} 
+                            onChange={e=>setExpenseForm({...expenseForm, description:e.target.value})}
+                        />
+                        <input 
+                            className="flex-1 w-full p-1.5 text-[10px] border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-red-500 font-bold transition-all" 
+                            type="text" 
+                            placeholder="R$ 0,00" 
+                            value={expenseForm.amount} 
+                            onChange={(e) => handleCurrencyChange(e, setExpenseForm, expenseForm, 'amount')} 
+                        />
+                    </div>
 
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setExpenseForm({...expenseForm, isFixed: !expenseForm.isFixed, installments: '1', isInstallmentValue: false})}
-                        disabled={!!editingId}
-                        className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all whitespace-nowrap ${expenseForm.isFixed ? 'bg-purple-600 text-white border-purple-600' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-700 dark:border-gray-600'}`}
-                    >
-                        {expenseForm.isFixed ? 'Fixa ✅' : 'Fixa?'}
-                    </button>
+                    {/* Linha 2: Data + Categoria */}
+                    <div className="flex gap-1.5">
+                        <input 
+                            className="w-24 p-1.5 text-[10px] border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-red-500 transition-all" 
+                            type="date" 
+                            value={expenseForm.date} 
+                            onChange={e=>setExpenseForm({...expenseForm, date:e.target.value})}
+                        />
+                        <select 
+                            className="flex-1 p-1.5 text-[10px] border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-red-500 transition-all" 
+                            value={expenseForm.category} 
+                            onChange={e=>setExpenseForm({...expenseForm, category:e.target.value})}
+                        >
+                            {expenseCategories.map(c=><option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </div>
 
-                    {!expenseForm.isFixed && (
-                        <>
-                            <button
-                                type="button"
-                                onClick={() => setExpenseForm({...expenseForm, isInstallmentValue: !expenseForm.isInstallmentValue})}
-                                disabled={!!editingId} 
-                                className={`flex-1 px-2 py-2 rounded-lg text-[10px] font-bold uppercase border transition-all whitespace-nowrap ${expenseForm.isInstallmentValue ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-700 dark:border-gray-600'}`}
-                            >
-                                {expenseForm.isInstallmentValue ? 'Vr. Parcela' : 'Vr. Total'}
-                            </button>
-                            <input 
-                                disabled={!!editingId} 
-                                className="w-12 p-2 text-[10px] border rounded-lg text-center transition-colors outline-none focus:border-red-500 bg-gray-50 dark:bg-gray-700 dark:text-white"
-                                placeholder="1x" 
-                                maxLength={3}
-                                value={expenseForm.installments} 
-                                onChange={e => setExpenseForm({...expenseForm, installments: e.target.value.replace(/\D/g, '')})}
-                            />
-                        </>
+                    {/* Linha 3: Opções Extras (Tudo em uma linha) */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+                        <button
+                            type="button"
+                            onClick={() => setExpenseForm({...expenseForm, isFixed: !expenseForm.isFixed, installments: '1', isInstallmentValue: false})}
+                            disabled={!!editingId}
+                            className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border transition-all whitespace-nowrap h-7 ${expenseForm.isFixed ? 'bg-purple-600 text-white border-purple-600' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-700 dark:border-gray-600'}`}
+                        >
+                            {expenseForm.isFixed ? 'Fixa' : 'Fixa?'}
+                        </button>
+
+                        {!expenseForm.isFixed && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => setExpenseForm({...expenseForm, isInstallmentValue: !expenseForm.isInstallmentValue})}
+                                    disabled={!!editingId} 
+                                    className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border transition-all whitespace-nowrap h-7 ${expenseForm.isInstallmentValue ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-700 dark:border-gray-600'}`}
+                                >
+                                    {expenseForm.isInstallmentValue ? 'Vr. Parc.' : 'Vr. Tot.'}
+                                </button>
+                                <input 
+                                    disabled={!!editingId} 
+                                    className="w-10 p-1 text-[9px] border rounded-md text-center h-7 outline-none focus:border-red-500 bg-gray-50 dark:bg-gray-700 dark:text-white"
+                                    placeholder="1x" 
+                                    maxLength={3}
+                                    value={expenseForm.installments} 
+                                    onChange={e => setExpenseForm({...expenseForm, installments: e.target.value.replace(/\D/g, '')})}
+                                />
+                            </>
+                        )}
+
+                        <select 
+                            className="flex-1 min-w-[60px] p-1 text-[9px] border rounded-md bg-gray-50 dark:bg-gray-700 dark:text-white outline-none h-7" 
+                            value={expenseForm.paymentMethod || 'Pix'} 
+                            onChange={e=>setExpenseForm({...expenseForm, paymentMethod: e.target.value})}
+                        >
+                            {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                    </div>
+
+                    {expenseForm.paymentMethod === 'Crédito' && (
+                          <select 
+                            className="w-full p-1.5 text-[10px] border rounded-lg bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-gray-800 dark:border-yellow-700 dark:text-yellow-200 outline-none focus:ring-1 focus:ring-yellow-500 transition-all font-bold"
+                            value={expenseForm.card || ''} 
+                            onChange={e=>setExpenseForm({...expenseForm, card: e.target.value})}
+                        >
+                            <option value="">Selecione o Cartão...</option>
+                            {creditCards.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option> 
+                            ))}
+                        </select>
                     )}
+                    
+                    <button 
+                        onClick={()=>addTransaction('expense')} 
+                        className="w-full bg-red-600 hover:bg-red-700 text-white p-1.5 rounded-lg text-[10px] font-bold transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1 mt-1"
+                    >
+                        {editingId ? <><Edit size={10}/> Salvar</> : <><DollarSign size={10}/> Adicionar</>}
+                    </button>
                 </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                    <select 
-                        className="w-full p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-all" 
-                        value={expenseForm.paymentMethod || 'Pix'} 
-                        onChange={e=>setExpenseForm({...expenseForm, paymentMethod: e.target.value})}
-                    >
-                        {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-
-                    <select 
-                        className="w-full p-2 text-xs border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-all" 
-                        value={expenseForm.category} 
-                        onChange={e=>setExpenseForm({...expenseForm, category:e.target.value})}
-                    >
-                        {expenseCategories.map(c=><option key={c} value={c}>{c}</option>)}
-                    </select>
-                </div>
-
-                {expenseForm.paymentMethod === 'Crédito' && (
-                      <select 
-                        className="w-full p-2 text-xs border rounded-lg bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-gray-800 dark:border-yellow-700 dark:text-yellow-200 outline-none focus:ring-1 focus:ring-yellow-500 transition-all font-bold animate-fadeIn"
-                        value={expenseForm.card || ''} 
-                        onChange={e=>setExpenseForm({...expenseForm, card: e.target.value})}
-                    >
-                        <option value="">Selecione o Cartão...</option>
-                        {creditCards.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option> 
-                        ))}
-                    </select>
-                )}
-                
-                <button 
-                    onClick={()=>addTransaction('expense')} 
-                    className="w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg text-xs font-bold transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1 mt-1"
-                >
-                    {editingId ? <><Edit size={12}/> Salvar</> : <><DollarSign size={12}/> Adicionar</>}
-                </button>
             </div>
         </div>
-      </div>
 
         {/* 3. COLUNA DIREITA: EXTRATO (65%) */}
-        <div className={`lg:col-span-8 ${mobileTab === 'form' ? 'hidden lg:block' : 'block'}`}>
+        <div className={`lg:col-span-8 h-full flex flex-col overflow-hidden ${mobileTab === 'form' ? 'hidden lg:block' : 'block'}`}>
             
             {/* --- [MUDANÇA AQUI] --- */}
             {/* A BARRA DE FILTROS AGORA MORA FORA DO CARTÃO (NO TOPO) */}
-            <div className="flex items-center gap-2 mb-4 overflow-x-auto p-2 scrollbar-hide">
+            <div className="flex items-center gap-2 mb-2 overflow-x-auto p-1 shrink-0 scrollbar-hide">
                 {/* Botão GERAL */}
                 <button 
                     onClick={() => setActiveFilter('Geral')}
@@ -463,7 +463,7 @@ export default function TransactionsView({
             {/* --- [FIM DA MUDANÇA DA BARRA] --- */}
 
             {/* O CARTÃO PRINCIPAL COMEÇA AQUI */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 min-h-[500px] transition-colors">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex-1 overflow-y-auto custom-scrollbar transition-colors">
                 
                 {/* LÓGICA DE EXIBIÇÃO: GERAL vs FATURA */}
                 {activeFilter === 'Geral' ? (

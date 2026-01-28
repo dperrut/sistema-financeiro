@@ -106,85 +106,90 @@ export default function DashboardView({
             </div>
         </div>
 
-        {/* PARTE INFERIOR: OPERAÇÃO (Compactada) */}
+        {/* PARTE INFERIOR: OPERAÇÃO (Lado a Lado) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700">
             
-            {/* ESQUERDA: CARTÕES */}
+            {/* ESQUERDA: CARTÕES (Agora Horizontal) */}
             <div className="p-3 relative overflow-hidden flex flex-col justify-center">
                 <div className="absolute -top-2 -right-2 p-4 opacity-[0.03] pointer-events-none">
                     <CreditCard size={80} />
                 </div>
                 
-                <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-2 flex items-center gap-1.5">
+                {/* Título */}
+                <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-1 flex items-center gap-1.5">
                     <CreditCard size={12}/> Compromissos de Cartão
                 </h3>
                 
-                {/* COLUNA 1: A PAGAR */}
-                <div className="flex-1 relative">
-                    {overdueList.length > 0 && (
-                         <span className="absolute -top-1 right-0 flex h-2 w-2">
-                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                           <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                         </span>
-                    )}
-
-                    {/* MENU FLUTUANTE (SELETOR) */}
-                    {showOverdueMenu && overdueList.length > 1 && (
-                        <div className="absolute top-8 left-0 z-50 bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-red-100 dark:border-red-900 w-48 p-1 animate-fadeIn">
-                            <p className="text-[9px] font-bold text-gray-400 uppercase px-2 py-1 border-b border-gray-100 dark:border-gray-700">Escolha a fatura:</p>
-                            {overdueList.map(item => (
-                                <button 
-                                    key={item.id}
-                                    onClick={() => onNavigateToCard(item.id)}
-                                    className="w-full text-left px-2 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/20 rounded flex justify-between items-center"
-                                >
-                                    <span>{item.name}</span>
-                                    {/* Aqui estava .toFixed(0), mudei para formatBRL */}
-                                    <span className="text-red-500">R$ {formatBRL(item.amount)}</span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* TÍTULO CLICÁVEL */}
-                    <button 
-                        onClick={() => {
-                            if (overdueList.length === 1) onNavigateToCard(overdueList[0].id);
-                            else if (overdueList.length > 1) setShowOverdueMenu(!showOverdueMenu);
-                        }}
-                        className={`text-left w-full focus:outline-none ${overdueList.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
-                    >
-                        <p className={`text-[9px] font-bold uppercase mb-0.5 transition-colors ${overdueList.length > 0 ? 'text-red-500 animate-pulse hover:text-red-600' : 'text-orange-500'}`}>
-                            {overdueList.length > 0 ? `⚠️ Atrasado (${overdueList.length})` : 'A Pagar'}
-                        </p>
-                        
-                        <p className={`text-lg font-bold leading-none ${overdueList.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100'}`}>
-                            R$ {formatBRL(invoiceTotal || 0)}
-                        </p>
-                    </button>
+                {/* CONTAINER FLEX: LADO A LADO */}
+                <div className="flex items-start gap-3 mt-1">
                     
-                    {/* BARRA DE PROGRESSO */}
-                    <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full mt-1.5 overflow-hidden">
-                        <div 
-                            className={`h-full rounded-full ${overdueList.length > 0 ? 'bg-red-500' : 'bg-orange-500'}`} 
-                            style={{ width: '70%' }}
-                        ></div>
-                    </div>
-                </div>
+                    {/* COLUNA 1: A PAGAR (50%) */}
+                    <div className="flex-1 relative">
+                        {overdueList.length > 0 && (
+                             <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                               <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                             </span>
+                        )}
 
-                {/* CAIXA AZUL: PRÓXIMAS */}
-                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                    <p className="text-[9px] font-bold text-blue-500 uppercase mb-0.5">Próximas Faturas</p>
-                    <p className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-none">
-                        R$ {formatBRL(nextInvoiceTotal || 0)}
-                    </p>
-                    <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full mt-1.5 overflow-hidden">
-                        <div className="bg-blue-500 h-full rounded-full" style={{ width: '40%' }}></div>
+                        {/* MENU FLUTUANTE */}
+                        {showOverdueMenu && overdueList.length > 1 && (
+                            <div className="absolute top-8 left-0 z-50 bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-red-100 dark:border-red-900 w-48 p-1 animate-fadeIn">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase px-2 py-1 border-b border-gray-100 dark:border-gray-700">Escolha a fatura:</p>
+                                {overdueList.map(item => (
+                                    <button 
+                                        key={item.id}
+                                        onClick={() => onNavigateToCard(item.id)}
+                                        className="w-full text-left px-2 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/20 rounded flex justify-between items-center"
+                                    >
+                                        <span className="truncate max-w-[80px]">{item.name}</span>
+                                        <span className="text-red-500 text-[10px]">R$ {formatBRL(item.amount)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* TÍTULO CLICÁVEL */}
+                        <button 
+                            onClick={() => {
+                                if (overdueList.length === 1) onNavigateToCard(overdueList[0].id);
+                                else if (overdueList.length > 1) setShowOverdueMenu(!showOverdueMenu);
+                            }}
+                            className={`text-left w-full focus:outline-none ${overdueList.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+                        >
+                            <p className={`text-[9px] font-bold uppercase mb-0.5 transition-colors ${overdueList.length > 0 ? 'text-red-500 animate-pulse hover:text-red-600' : 'text-orange-500'}`}>
+                                {overdueList.length > 0 ? `⚠️ Atrasado (${overdueList.length})` : 'A Pagar'}
+                            </p>
+                            
+                            <p className={`text-lg font-bold leading-none ${overdueList.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100'}`}>
+                                R$ {formatBRL(invoiceTotal || 0)}
+                            </p>
+                        </button>
+                        
+                        {/* BARRA DE PROGRESSO */}
+                        <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full mt-1.5 overflow-hidden">
+                            <div 
+                                className={`h-full rounded-full ${overdueList.length > 0 ? 'bg-red-500' : 'bg-orange-500'}`} 
+                                style={{ width: '70%' }}
+                            ></div>
+                        </div>
                     </div>
+
+                    {/* COLUNA 2: PRÓXIMAS (50%) - COM BORDA ESQUERDA PARA SEPARAR */}
+                    <div className="flex-1 pl-3 border-l border-gray-100 dark:border-gray-700 relative">
+                        <p className="text-[9px] font-bold text-blue-500 uppercase mb-0.5">Próximas Faturas</p>
+                        <p className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-none">
+                            R$ {formatBRL(nextInvoiceTotal || 0)}
+                        </p>
+                        <div className="w-full bg-gray-100 dark:bg-gray-700 h-1 rounded-full mt-1.5 overflow-hidden">
+                            <div className="bg-blue-500 h-full rounded-full" style={{ width: '40%' }}></div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
-            {/* DIREITA: FLUXO */}
+            {/* DIREITA: FLUXO (Compacto e Alinhado) */}
             <div className="p-3 relative flex flex-col justify-center">
                  <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-2 flex items-center gap-1.5">
                     <TrendingUp size={12}/> Fluxo
